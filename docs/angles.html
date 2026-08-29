@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Where a walk-forward Poisson model disagrees with the bookmakers' price in your favour — the pick, the model's number, the market's, and the gap.">
+<title>The Angles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>/* ==========================================================================
+   base.css — shared stylesheet for the three public pages
+   (coupon_template.html, why_template.html, track_record_template.html).
+   Inlined into each page at render time by scripts/render_common.py, so it is
+   the single source of truth for tokens, layout, typography and the shared
+   components. Page-specific rules live in each template's own <style> block.
+   ========================================================================== */
+
+/* ---- design tokens ------------------------------------------------------- */
+:root {
+  color-scheme: light dark;
+
+  --paper: #eef0e8;
+  --paper-raised: #f7f8f2;
+  --ink: #14181d;
+  --ink-soft: #454e46;
+  --ink-faint: #7a8279;
+  --line: rgba(20, 24, 29, 0.13);
+  --line-strong: rgba(20, 24, 29, 0.22);
+  --amber: #b9791c;
+  --amber-ink: #6e4610;
+
+  /* outcome + chart series — validated colourblind-safe (dataviz validator,
+     light surface #f7f8f2): worst all-pairs CVD ΔE 9.2, normal-vision 24.0 */
+  --home: #1baf7a;
+  --home-bg: rgba(27, 175, 122, 0.13);
+  --draw: #eb6834;
+  --draw-bg: rgba(235, 104, 52, 0.13);
+  --away: #2a78d6;
+  --away-bg: rgba(42, 120, 214, 0.13);
+  --viz-model: #2a78d6;
+  --viz-elo: #1baf7a;
+  --viz-alt: #eb6834;
+  --viz-ref: #7a8279;
+  --viz-band: rgba(42, 120, 214, 0.09);
+  --viz-grid: rgba(20, 24, 29, 0.10);
+  --viz-surface: #f7f8f2;
+  --ratings: #256abf;
+  --ratings-bg: rgba(37, 106, 191, 0.12);
+  --adj: #c2410c;
+  --adj-bg: rgba(194, 65, 12, 0.12);
+  --gap-flag: #c2410c;
+  --gap-flag-bg: rgba(194, 65, 12, 0.12);
+  --good: #0ca30c;
+  --bad: #d03b3b;
+  --neutral: #7a8279;
+
+  --shadow: 0 1px 2px rgba(20, 24, 29, 0.06), 0 8px 24px -12px rgba(20, 24, 29, 0.18);
+  --radius: 10px;
+  --radius-sm: 5px;
+
+  /* spacing scale (rem) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4rem;
+
+  --measure: 66ch;
+  --page-max: 960px;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-display: "Big Shoulders Display", var(--font-sans);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141a;
+    --paper-raised: #171c23;
+    --ink: #e9ece4;
+    --ink-soft: #b2b9ae;
+    --ink-faint: #767f77;
+    --line: rgba(233, 236, 228, 0.13);
+    --line-strong: rgba(233, 236, 228, 0.22);
+    --amber: #e3ac4c;
+    --amber-ink: #f0c274;
+    --home: #199e70;
+    --home-bg: rgba(25, 158, 112, 0.16);
+    --draw: #d95926;
+    --draw-bg: rgba(217, 89, 38, 0.16);
+    --away: #3987e5;
+    --away-bg: rgba(57, 135, 229, 0.16);
+    --viz-model: #3987e5;
+    --viz-elo: #199e70;
+    --viz-alt: #d95926;
+    --viz-ref: #8b938a;
+    --viz-band: rgba(57, 135, 229, 0.14);
+    --viz-grid: rgba(233, 236, 228, 0.10);
+    --viz-surface: #171c23;
+    --ratings: #6da7ec;
+    --ratings-bg: rgba(109, 167, 236, 0.16);
+    --adj: #e07a4c;
+    --adj-bg: rgba(224, 122, 76, 0.16);
+    --gap-flag: #e07a4c;
+    --gap-flag-bg: rgba(224, 122, 76, 0.16);
+    --good: #3fb93f;
+    --bad: #e06666;
+    --neutral: #8b938a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+}
+/* explicit toggle wins in both directions */
+:root[data-theme="dark"] {
+  --paper: #10141a;
+  --paper-raised: #171c23;
+  --ink: #e9ece4;
+  --ink-soft: #b2b9ae;
+  --ink-faint: #767f77;
+  --line: rgba(233, 236, 228, 0.13);
+  --line-strong: rgba(233, 236, 228, 0.22);
+  --amber: #e3ac4c;
+  --amber-ink: #f0c274;
+  --home: #199e70;
+  --home-bg: rgba(25, 158, 112, 0.16);
+  --draw: #d95926;
+  --draw-bg: rgba(217, 89, 38, 0.16);
+  --away: #3987e5;
+  --away-bg: rgba(57, 135, 229, 0.16);
+  --viz-model: #3987e5;
+  --viz-elo: #199e70;
+  --viz-alt: #d95926;
+  --viz-ref: #8b938a;
+  --viz-band: rgba(57, 135, 229, 0.14);
+  --viz-grid: rgba(233, 236, 228, 0.10);
+  --viz-surface: #171c23;
+  --ratings: #6da7ec;
+  --ratings-bg: rgba(109, 167, 236, 0.16);
+  --adj: #e07a4c;
+  --adj-bg: rgba(224, 122, 76, 0.16);
+  --gap-flag: #e07a4c;
+  --gap-flag-bg: rgba(224, 122, 76, 0.16);
+  --good: #3fb93f;
+  --bad: #e06666;
+  --neutral: #8b938a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- reset ------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html { -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; }
+body {
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+img, svg, video { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { line-height: 1.1; text-wrap: balance; }
+p { text-wrap: pretty; }
+a { color: var(--amber-ink); text-underline-offset: 0.15em; }
+
+::selection { background: var(--amber); color: #fff; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 2px; }
+
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* skip link */
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 100;
+  background: var(--paper); color: var(--ink); padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+}
+.skip:focus { left: var(--sp-3); top: var(--sp-3); }
+
+/* ---- header / nav ---------------------------------------------------- */
+header {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(6px);
+  backdrop-filter: saturate(1.4) blur(6px);
+  border-bottom: 1px solid var(--line);
+  padding: var(--sp-3) var(--sp-5) 0;
+}
+.header-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--sp-4); flex-wrap: wrap;
+  max-width: var(--page-max); margin-inline: auto;
+}
+.eyebrow {
+  font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--amber-ink); margin-bottom: 0.15rem;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(2.1rem, 5vw, 3.1rem); letter-spacing: 0.005em;
+  text-transform: uppercase; line-height: 0.92;
+}
+.generated { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-faint); white-space: nowrap; }
+
+nav.site {
+  max-width: var(--page-max); margin: var(--sp-3) auto 0;
+  display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: var(--sp-3);
+  scrollbar-width: thin;
+}
+nav.site a {
+  flex: none; font-family: var(--font-mono); font-size: 0.75rem;
+  text-decoration: none; color: var(--ink-soft);
+  border: 1px solid var(--line-strong); border-radius: 100px;
+  padding: 0.3rem 0.8rem; white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+nav.site a[aria-current="page"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+nav.site a:hover { border-color: var(--amber); color: var(--ink); }
+
+main { max-width: var(--page-max); margin-inline: auto; padding: var(--sp-6) var(--sp-5) var(--sp-8); }
+
+footer {
+  max-width: var(--page-max); margin-inline: auto;
+  padding: var(--sp-5) var(--sp-5) var(--sp-7);
+  color: var(--ink-faint); font-size: 0.82rem;
+  border-top: 1px solid var(--line);
+}
+footer p { max-width: var(--measure); }
+footer strong { color: var(--ink); }
+
+/* ---- shared components --------------------------------------------------- */
+.tiles, .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: var(--sp-5);
+}
+.tile, .stat { background: var(--paper-raised); padding: 0.85rem var(--sp-4); }
+.tile .n, .stat .n {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.75rem;
+  line-height: 1; display: block;
+}
+.tile .l, .stat .l {
+  font-size: 0.7rem; color: var(--ink-faint); text-transform: uppercase;
+  letter-spacing: 0.05em; margin-top: 0.3rem; display: block;
+}
+.tile .sub2 { font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.15rem; display: block; }
+
+.panel {
+  background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: var(--sp-4) 1.15rem; box-shadow: var(--shadow); margin-bottom: 1.25rem;
+}
+.panel > h3 {
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-faint); font-weight: 600; margin-bottom: 0.15rem;
+}
+.panel .cap { font-size: 0.78rem; color: var(--ink-faint); margin-bottom: var(--sp-3); }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); }
+th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); font-weight: 600; }
+td.num, th.num { text-align: right; }
+.scroll-x { overflow-x: auto; }
+
+/* stacked probability bar — 2px surface gaps do the separating, no strokes */
+.bar { display: flex; height: 1.15rem; border-radius: 4px; gap: 2px; background: var(--paper-raised); }
+.seg {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 0.66rem; color: #fff;
+  white-space: nowrap; overflow: hidden;
+}
+.seg:first-child { border-radius: 4px 0 0 4px; }
+.seg:last-child { border-radius: 0 4px 4px 0; }
+.seg.home { background: var(--home); }
+.seg.draw { background: var(--draw); }
+.seg.away { background: var(--away); }
+
+/* chart tooltip + legend (used by the SVG charts) */
+.chart-wrap { position: relative; overflow-x: auto; }
+svg.chart { display: block; max-width: 100%; height: auto; touch-action: none; }
+.legend { display: flex; gap: var(--sp-4); font-size: 0.72rem; color: var(--ink-soft); margin-top: var(--sp-2); flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.legend .lk { width: 0.9rem; height: 0; border-top: 2px solid currentColor; display: inline-block; }
+.legend .lk.dash { border-top-style: dashed; }
+.legend .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; }
+.viz-tip {
+  position: absolute; pointer-events: none; z-index: 5;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
+  padding: 0.45rem 0.6rem; font-size: 0.74rem; box-shadow: var(--shadow);
+  opacity: 0; transition: opacity 0.1s; min-width: 8rem;
+}
+.viz-tip .tx { font-family: var(--font-mono); color: var(--ink-faint); font-size: 0.68rem; display: block; margin-bottom: 0.25rem; }
+.viz-tip .row { display: flex; align-items: center; gap: 0.4rem; justify-content: space-between; }
+.viz-tip .row .k { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ink-soft); }
+.viz-tip .row .k i { width: 0.85rem; height: 0; border-top: 2px solid currentColor; display: inline-block; }
+.viz-tip .row .v { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+
+details.tableview { margin-top: var(--sp-2); }
+details.tableview summary { font-size: 0.72rem; color: var(--ink-faint); cursor: pointer; font-family: var(--font-mono); }
+details.tableview summary:hover { color: var(--ink); }
+details.tableview table { margin-top: var(--sp-2); }
+
+.tag {
+  font-family: var(--font-mono); font-size: 0.7rem; padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-sm); background: var(--line); color: var(--ink-soft);
+  white-space: nowrap; display: inline-block;
+}
+
+/* ---- accessibility & media -------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
+@media (prefers-contrast: more) {
+  :root { --line: rgba(20, 24, 29, 0.35); --line-strong: rgba(20, 24, 29, 0.55); --ink-faint: #5a615a; }
+  :root[data-theme="dark"], :root:not([data-theme="light"]) { --line: rgba(233, 236, 228, 0.35); --line-strong: rgba(233, 236, 228, 0.6); }
+}
+@media (forced-colors: active) {
+  .bar { gap: 1px; }
+  .seg { forced-color-adjust: none; }
+  nav.site a[aria-current="page"] { border-width: 2px; }
+}
+
+@media print {
+  header { position: static; backdrop-filter: none; }
+  nav.site, .skip, details.tableview summary { display: none; }
+  details.tableview { display: block; }
+  details.tableview[open] table, details.tableview table { display: table; }
+  .panel, .fixture, .tile { box-shadow: none; break-inside: avoid; }
+  body { background: #fff; color: #000; font-size: 11pt; }
+  a { color: #000; text-decoration: none; }
+  main { max-width: none; }
+}
+</style>
+<style>
+  .intro { font-size: 0.98rem; color: var(--ink-soft); max-width: 64ch; margin-bottom: var(--sp-5); }
+  .intro strong { color: var(--ink); font-weight: 600; }
+
+  table.angles td, table.angles th { padding: 0.55rem 0.65rem; }
+  .fx { font-weight: 500; }
+  .fx .vs { color: var(--ink-faint); font-weight: 400; margin: 0 0.3rem; font-size: 0.85em; }
+  .fx .lg { display: block; font-size: 0.72rem; color: var(--ink-faint); font-weight: 400; }
+  .pick { font-weight: 600; }
+  .pick .side { color: var(--ink-faint); font-weight: 400; font-size: 0.8em; margin-left: 0.3rem; }
+  .edge { font-family: var(--font-mono); font-weight: 600; color: var(--home); white-space: nowrap; }
+  .ls { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint); }
+  .cat { font-family: var(--font-mono); font-size: 0.66rem; padding: 0.1rem 0.42rem; border-radius: var(--radius-sm);
+    text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .cat.favourite { background: var(--home-bg); color: var(--home); }
+  .cat.underdog { background: var(--away-bg); color: var(--away); }
+  .cat.draw { background: var(--draw-bg); color: var(--draw); }
+  .empty { color: var(--ink-faint); font-style: italic; padding: var(--sp-6) 0; }
+
+  .caveat { font-size: 0.85rem; color: var(--ink-soft); background: var(--adj-bg);
+    border: 1px solid color-mix(in srgb, var(--adj) 30%, transparent);
+    border-radius: var(--radius); padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-5); }
+  .caveat strong { color: var(--adj); }
+
+  @media (max-width: 620px) {
+    table.angles .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <div class="header-top">
+    <div>
+      <p class="eyebrow">Where the model disagrees with the price</p>
+      <h1>The Angles</h1>
+    </div>
+    <div class="generated">2026-08-29 16:28 UTC</div>
+  </div>
+  <nav class="site" aria-label="Pages">
+    <a href="./index.html">Weekend Coupon</a>
+    <a href="./why.html">The Working</a>
+    <a href="./angles.html" aria-current="page">The Angles</a>
+    <a href="./track-record.html">The Ledger</a>
+  </nav>
+</header>
+
+<main id="main">
+  <p class="intro">
+    For every fixture the model looks at all three outcomes and picks the one
+    where <strong>its probability is furthest above the market's</strong> — the
+    outcome it thinks the price has underrated. That gap is the <strong>edge</strong>.
+    Only fixtures with an edge of 5+ points are listed, biggest first. This is
+    <strong>not</strong> a list of short favourites: a team the model rates 80%
+    that the market already prices at 80% has no edge and isn't here. Nor is it
+    a tip sheet — see below.
+  </p>
+
+  <div class="caveat">
+    <strong>Read this first.</strong> These are the model's opinions, not tips.
+    Over three seasons of testing the model lands about <strong>1% worse</strong>
+    than the bookmakers' sharpest prices — it does not beat the market. A listed
+    edge is frequently smaller than the bookmaker's built-in margin, so it isn't
+    real value. And these picks are independent reads — stacking them into an
+    accumulator multiplies both the margin you pay and the chance one upset ends
+    the bet. A double-digit edge almost always means the model's own referee /
+    rest / travel adjustments are stretching, not that the market is wrong —
+    <a href="./why.html">The Working</a> shows which. Bet responsibly, or don't bet.
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="panel" style="padding:0">
+    <div class="scroll-x">
+      <table class="angles">
+        <thead><tr>
+          <th>Fixture</th><th>Pick</th>
+          <th class="num">Model</th><th class="num">Market</th><th class="num">Edge</th>
+          <th class="hide-sm">Likely score</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>
+    <strong>Not a betting recommendation.</strong> The model's forecasts land
+    about 1% worse than the bookmakers' sharpest closing prices over three
+    seasons of testing — it does not beat the market, and an "edge" here is the
+    model's opinion, not a guaranteed overlay. Bookmakers' prices carry a
+    built-in margin, so a small edge is often not real value once that's paid.
+    And stacking several of these into an accumulator multiplies the margin and
+    the risk of one upset ending the bet — the picks are independent reads, not
+    a slip. "Market" figures are the pre-match price with the margin removed.
+    Full method, and the model's live track record, in The Ledger and the
+    project README.
+  </p>
+</footer>
+
+<script>
+  const DATA = [{"league":"Scottish Premiership","date":"2026-08-29T15:00","home":"Kilmarnock","away":"Dundee United","pick":"Kilmarnock","side":"home","category":"favourite","model":60.0,"market":39.0,"edge":20.9,"modelProbs":[60.0,22.2,17.8],"marketProbs":[39.0,27.0,34.0],"likelyScore":"1-0"},{"league":"Scottish Premiership","date":"2026-08-30T15:00","home":"St Mirren","away":"Motherwell","pick":"St Mirren","side":"home","category":"favourite","model":56.4,"market":37.7,"edge":18.6,"modelProbs":[56.4,24.9,18.7],"marketProbs":[37.7,28.0,34.2],"likelyScore":"1-0"},{"league":"La Liga","date":"2026-08-29T16:00","home":"Levante","away":"Betis","pick":"Levante","side":"home","category":"underdog","model":43.5,"market":28.0,"edge":15.6,"modelProbs":[43.5,26.7,29.8],"marketProbs":[28.0,28.8,43.2],"likelyScore":"1-1"},{"league":"Scottish Premiership","date":"2026-08-30T15:00","home":"Dundee","away":"Hibernian","pick":"Dundee","side":"home","category":"underdog","model":39.5,"market":29.4,"edge":10.1,"modelProbs":[39.5,23.2,37.3],"marketProbs":[29.4,27.7,42.8],"likelyScore":"1-1"},{"league":"Scottish Premiership","date":"2026-08-29T15:00","home":"Hearts","away":"St Johnstone","pick":"Hearts","side":"home","category":"favourite","model":63.5,"market":54.9,"edge":8.6,"modelProbs":[63.5,20.5,16.1],"marketProbs":[54.9,24.6,20.5],"likelyScore":"1-0"},{"league":"Premier League","date":"2026-08-30T14:00","home":"Leeds","away":"Brentford","pick":"Brentford","side":"away","category":"underdog","model":42.4,"market":35.0,"edge":7.4,"modelProbs":[29.8,27.8,42.4],"marketProbs":[36.4,28.6,35.0],"likelyScore":"1-1"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Cardiff","away":"Sheffield United","pick":"Sheffield United","side":"away","category":"favourite","model":44.0,"market":37.1,"edge":6.9,"modelProbs":[31.0,25.0,44.0],"marketProbs":[36.4,26.5,37.1],"likelyScore":"1-1"},{"league":"Primeira Liga","date":"2026-08-30T15:30","home":"Nacional","away":"Estrela","pick":"Nacional","side":"home","category":"favourite","model":47.9,"market":41.0,"edge":6.9,"modelProbs":[47.9,25.4,26.7],"marketProbs":[41.0,28.6,30.4],"likelyScore":"1-1"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Bristol City","away":"Portsmouth","pick":"Bristol City","side":"home","category":"favourite","model":50.0,"market":44.4,"edge":5.7,"modelProbs":[50.0,25.6,24.4],"marketProbs":[44.4,27.4,28.2],"likelyScore":"1-1"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Blackburn","away":"QPR","pick":"Blackburn","side":"home","category":"favourite","model":42.2,"market":37.0,"edge":5.2,"modelProbs":[42.2,27.9,29.9],"marketProbs":[37.0,28.0,34.9],"likelyScore":"1-1"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Southampton","away":"Millwall","pick":"Southampton","side":"home","category":"favourite","model":53.6,"market":48.5,"edge":5.1,"modelProbs":[53.6,24.0,22.4],"marketProbs":[48.5,25.7,25.7],"likelyScore":"1-1"}];
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtDate = iso => new Date(iso).toLocaleString('en-GB',
+    { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const SIDE = { home: 'home win', draw: '', away: 'away win' };
+
+  // ---- stat strip ----
+  const n = DATA.length;
+  const biggest = DATA.reduce((m, d) => Math.max(m, d.edge), 0);
+  const count = c => DATA.filter(d => d.category === c).length;
+  const stats = [
+    { n: n, l: 'Value picks (≥5pt)' },
+    { n: n ? '+' + biggest.toFixed(1) + 'pt' : '–', l: 'Biggest edge' },
+    { n: count('favourite'), l: 'On the favourite' },
+    { n: count('underdog'), l: 'On the underdog' },
+    { n: count('draw'), l: 'On the draw' },
+  ];
+  const statsEl = document.getElementById('stats');
+  for (const s of stats) {
+    const d = document.createElement('div');
+    d.className = 'stat';
+    d.innerHTML = `<span class="n num">${s.n}</span><span class="l">${s.l}</span>`;
+    statsEl.appendChild(d);
+  }
+
+  // ---- rows ----
+  const tb = document.getElementById('rows');
+  if (!DATA.length) {
+    tb.innerHTML = '<tr><td colspan="6"><p class="empty">No fixture on the current card clears a 5-point edge.</p></td></tr>';
+  }
+  for (const d of DATA) {
+    const tr = document.createElement('tr');
+    const sideLabel = SIDE[d.side] ? `<span class="side">${SIDE[d.side]}</span>` : '';
+    tr.innerHTML = `
+      <td class="fx">${esc(d.home)}<span class="vs">v</span>${esc(d.away)}
+        <span class="lg num">${esc(d.league)} · ${fmtDate(d.date)}</span></td>
+      <td class="pick">${esc(d.pick)}${sideLabel}
+        <span class="cat ${d.category}">${d.category}</span></td>
+      <td class="num">${d.model.toFixed(1)}%</td>
+      <td class="num">${d.market.toFixed(1)}%</td>
+      <td class="num edge">+${d.edge.toFixed(1)}pt</td>
+      <td class="hide-sm ls">${esc(d.likelyScore || '')}</td>`;
+    tb.appendChild(tr);
+  }
+</script>
+</body>
+</html>

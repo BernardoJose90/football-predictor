@@ -34,16 +34,17 @@ jobs:
       - name: Render this weekend's predictions
         run: python -m scripts.render_coupon
 
-      - name: Render the explainer and the track record
+      - name: Render the explainer, the angles and the track record
         run: |
           python -m scripts.render_why
+          python -m scripts.render_angles
           python -m scripts.track_record --eval-start 2025-08-01
 
       - name: Commit updated pages and prediction log
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html docs/why.html docs/track-record.html artefacts/prediction_log.csv
+          git add docs/index.html docs/why.html docs/angles.html docs/track-record.html artefacts/prediction_log.csv
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Auto-update weekend pages [skip ci]"
           git push

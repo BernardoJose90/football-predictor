@@ -261,6 +261,17 @@ each fixture "ratings-driven" / "adjustment-driven" / "mixed" and shows the
 attack/defence numbers behind it. Reads the rich per-fixture JSON
 `predict_upcoming` always writes next to its CSV - nothing is recomputed.
 
+**The Angles** (`scripts/render_angles.py` -> `docs/angles.html` via
+`web/angles_template.html`, plus `artefacts/angles.json`). A curated view:
+for each fixture, the outcome where the model's probability is *furthest
+above* the market's (the "edge"), filtered to edge >= 5pt and pick
+probability >= 35%, sorted biggest edge first, tagged favourite / underdog /
+draw. Deliberately not a list of short favourites (no edge = not listed) and
+carries a prominent caveat: the model lands ~1% worse than the closing line,
+a small edge is often eaten by the bookmaker's margin, and a double-digit
+edge is usually the section-10.1 adjustments stretching rather than a
+mispriced market. Reads the same `upcoming_predictions.json`.
+
 **The Ledger** (`evaluate/prediction_log.py` + `evaluate/track_record.py` +
 `scripts/track_record.py`). Two kinds of evidence, kept separate:
 
@@ -289,9 +300,10 @@ with both, and renders `docs/track-record.html` from
 `web/track_record_template.html` (inline-SVG cumulative-RPS and calibration
 charts, no chart library). **All three pages now auto-publish**: the same
 `.github/workflows/weekly-predictions.yml` run renders the coupon, the
-explainer and the track record and commits all three (`docs/index.html`,
-`docs/why.html`, `docs/track-record.html`) plus the prediction log. They're a
-single GitHub Pages site with a shared nav - `/`, `/why.html`,
+explainer, the angles page and the track record and commits all four
+(`docs/index.html`, `docs/why.html`, `docs/angles.html`,
+`docs/track-record.html`) plus the prediction log. They're a single GitHub
+Pages site with a shared nav - `/`, `/why.html`, `/angles.html`,
 `/track-record.html`. Running any of the three scripts locally regenerates
 its page the same way CI does.
 
@@ -385,12 +397,13 @@ scripts/
   build_dataset.py, run_backtest.py, run_tune.py, predict_upcoming.py    entry points
   render_coupon.py       predict_upcoming -> docs/index.html (GitHub Pages), always logs
   render_why.py           model-vs-market gap explainer -> docs/why.html + artefacts/why.json
+  render_angles.py        model's best value picks vs the market -> docs/angles.html
   track_record.py         live log + walk-forward validation -> docs/track-record.html + JSON
   render_common.py        inlines web/base.css + the data payload + timestamp into a template
-web/base.css             shared tokens/layout/components for all three pages (one source of truth)
+web/base.css             shared tokens/layout/components for all four pages (one source of truth)
 web/coupon_template.html, why_template.html, track_record_template.html   per-page HTML/JS;
     __BASE_CSS__ is replaced with base.css at render time so each page still ships as one file
-.github/workflows/weekly-predictions.yml   Thu/Sat cron: renders + commits all three pages
+.github/workflows/weekly-predictions.yml   Thu/Sat cron: renders + commits all four pages
 api/
   app.py               FastAPI app - read-only /v1 endpoints over the JSON artefacts
   data.py              mtime-cached artefact loader (no model calls per request)
