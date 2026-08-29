@@ -10,6 +10,9 @@ results table and turns it into the numbers a track-record page shows:
   * a calibration table (predicted probability vs how often it actually
     happened), pooled over home/draw/away - the same plot the backtest draws,
     but on live predictions
+  * a scoreline scorecard - how often the single "likely score" was exactly
+    right / had the right margin / was within a goal each side, next to the
+    dumb "always guess 1-1" baseline
   * the per-fixture "here's what we said, here's what happened" list
 
 Nothing here rebuilds or reruns the model. It only reads the log and the
@@ -55,6 +58,51 @@ def _calibration(scored: pd.DataFrame, bins: int = 10) -> list[dict]:
     ]
 
 
+def _parse_score(s) -> tuple[int, int] | None:
+    """'2-1' -> (2, 1). None for anything that doesn't parse."""
+    try:
+        h, a = str(s).split("-")
+        return int(h), int(a)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _scoreline_block(scored: pd.DataFrame) -> dict | None:
+    """How the model's single 'likely score' did against the actual score.
+
+    Kept separate from the RPS/outcome numbers on purpose: the likely score is
+    just the most probable cell of the Poisson grid, not what the model is
+    built to predict, and exact-score accuracy tops out around 11-13% for
+    anyone (that's why 'baseline_always_1_1' is reported next to it - the
+    dumbest possible fixed guess). 'result_and_within_1' = got the H/D/A right
+    AND each side's goals within one; 'goal_diff' = predicted margin exactly
+    right (which already implies the result).
+    """
+    rows = scored.dropna(subset=["home_goals", "away_goals"])
+    hits_exact = hits_gd = hits_close = base_11 = n = 0
+    for r in rows.itertuples(index=False):
+        pred = _parse_score(r.likely_score)
+        if pred is None:
+            continue
+        ph, pa = pred
+        ah, aa = int(r.home_goals), int(r.away_goals)
+        n += 1
+        hits_exact += (ph == ah and pa == aa)
+        hits_gd += ((ph - pa) == (ah - aa))
+        pred_res = "H" if ph > pa else "A" if pa > ph else "D"
+        hits_close += (pred_res == r.result and abs(ph - ah) <= 1 and abs(pa - aa) <= 1)
+        base_11 += (ah == 1 and aa == 1)
+    if n == 0:
+        return None
+    return {
+        "n": n,
+        "exact": round(hits_exact / n, 4),
+        "goal_diff": round(hits_gd / n, 4),
+        "result_and_within_1": round(hits_close / n, 4),
+        "baseline_always_1_1": round(base_11 / n, 4),
+    }
+
+
 def _summary_block(scored: pd.DataFrame, prefix: str) -> dict:
     df = scored.rename(columns={f"{prefix}_{c}": c for c in _PCOLS})
     s = metrics.summary(df, cols=_PCOLS, outcome_col="result")
@@ -84,6 +132,7 @@ def score(log: pd.DataFrame, matches: pd.DataFrame, bins: int = 10) -> dict:
         "market": None,
         "cumulative": [],
         "calibration": [],
+        "scoreline": None,
         "by_league": [],
         "fixtures": [],
     }
@@ -95,6 +144,7 @@ def score(log: pd.DataFrame, matches: pd.DataFrame, bins: int = 10) -> dict:
                       scored["kickoff"].max().strftime("%Y-%m-%d")]
     report["model"] = _summary_block(scored, "model")
     report["calibration"] = _calibration(scored, bins=bins)
+    report["scoreline"] = _scoreline_block(scored)
     if not scored_mkt.empty:
         report["market"] = _summary_block(scored_mkt, "market")
         # model, restricted to the exact fixtures the market row covers, so the
@@ -141,6 +191,10 @@ def score(log: pd.DataFrame, matches: pd.DataFrame, bins: int = 10) -> dict:
             "score": (f"{int(r.home_goals)}-{int(r.away_goals)}"
                       if pd.notna(r.home_goals) else None),
             "likely_score": r.likely_score,
+            "scoreline_exact": bool(
+                pd.notna(r.home_goals)
+                and _parse_score(r.likely_score) == (int(r.home_goals), int(r.away_goals))
+            ),
             "model": [round(float(r.model_p_home) * 100, 1),
                       round(float(r.model_p_draw) * 100, 1),
                       round(float(r.model_p_away) * 100, 1)],

@@ -85,6 +85,40 @@ def test_calibration_pools_all_three_outcomes():
     assert sum(b["n"] for b in rep["calibration"]) == 2 * 3  # 2 fixtures x 3 outcome rows each
 
 
+def test_scoreline_block_counts_exact_margin_and_close():
+    # _log_row hard-codes likely_score "1-0" (a home win by one).
+    log = pd.DataFrame([
+        _log_row("m1", "A", "B", kickoff="2026-08-30 15:00"),   # actual 1-0 -> exact
+        _log_row("m2", "C", "D", kickoff="2026-08-30 17:00"),   # actual 2-1 -> margin + within-1, not exact
+        _log_row("m3", "E", "F", kickoff="2026-08-30 19:00"),   # actual 0-3 -> nothing
+        _log_row("m4", "G", "H", kickoff="2026-08-31 15:00"),   # actual 1-1 -> feeds the 1-1 baseline
+    ])
+    matches = pd.DataFrame([
+        _match_row("m1", "H", 1, 0), _match_row("m2", "H", 2, 1),
+        _match_row("m3", "A", 0, 3), _match_row("m4", "D", 1, 1),
+    ])
+    sl = score(log, matches)["scoreline"]
+    assert sl["n"] == 4
+    assert sl["exact"] == 0.25                 # only m1
+    assert sl["goal_diff"] == 0.5              # m1 (+1) and m2 (+1)
+    assert sl["result_and_within_1"] == 0.5    # m1 and m2
+    assert sl["baseline_always_1_1"] == 0.25   # only m4 finished 1-1
+
+
+def test_scoreline_exact_flag_on_each_fixture():
+    log = pd.DataFrame([_log_row("m1", "A", "B")])   # likely "1-0"
+    rep = score(log, pd.DataFrame([_match_row("m1", "H", 1, 0)]))
+    assert rep["fixtures"][0]["scoreline_exact"] is True
+    rep2 = score(log, pd.DataFrame([_match_row("m1", "H", 3, 0)]))
+    assert rep2["fixtures"][0]["scoreline_exact"] is False
+
+
+def test_scoreline_block_is_none_before_anything_is_played():
+    log = pd.DataFrame([_log_row("m1", "A", "B")])
+    rep = score(log, pd.DataFrame(columns=["match_id", "result", "home_goals", "away_goals"]))
+    assert rep["scoreline"] is None
+
+
 def test_join_results_keeps_pending_rows_with_nan_result():
     log = pd.DataFrame([_log_row("m1", "Arsenal", "Chelsea")])
     matches = pd.DataFrame(columns=["match_id", "result", "home_goals", "away_goals"])

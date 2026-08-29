@@ -175,6 +175,10 @@ def main(argv=None) -> int:
           f"{live['n_logged']} logged total")
     if live["model"]:
         print(f"             model RPS {live['model']['rps']:.4f}")
+    if live.get("scoreline"):
+        sl = live["scoreline"]
+        print(f"             scoreline: {sl['exact']:.1%} exact, {sl['goal_diff']:.1%} margin, "
+              f"{sl['result_and_within_1']:.1%} result+1  (1-1 baseline {sl['baseline_always_1_1']:.1%}, n={sl['n']})")
     print(f"validation : model RPS {val['model_rps']:.4f} vs devig {val['devig_rps']:.4f} "
           f"vs Elo {val['elo_rps']:.4f}  (n={val['model_n']})")
     print(f"wrote {out_path}")
