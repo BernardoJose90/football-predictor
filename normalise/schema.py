@@ -55,6 +55,32 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
+def season_code(date) -> str:
+    """football-data.co.uk's 4-digit season code for a date, e.g. '2526'.
+
+    A season is named by the calendar year it starts in; the cutover is 1 July
+    (every league in this repo is on a Aug-May calendar with a summer break).
+    Used to reconstruct a match_id for a not-yet-played fixture, where the
+    season column isn't handed to us the way it is on a historical CSV row.
+    """
+    d = pd.Timestamp(date)
+    start = d.year if d.month >= 7 else d.year - 1
+    return f"{start % 100:02d}{(start + 1) % 100:02d}"
+
+
+def make_match_id(div: str, date, home_team: str, away_team: str,
+                  season: str | None = None) -> str:
+    """The stable match_id for one fixture - same recipe used to build the
+    match_id column in ``normalise()`` below, exposed so callers working with
+    upcoming fixtures (scripts.predict_upcoming) can key predictions to the
+    exact row that will later carry the result. ``season`` is derived from the
+    date when not given."""
+    d = pd.Timestamp(date)
+    season = season or season_code(d)
+    return (f"{div}_{season}_{d.strftime('%Y%m%d')}_"
+            f"{_slug(home_team)}_{_slug(away_team)}")
+
+
 def _to_num(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
@@ -137,11 +163,12 @@ def normalise(raw: pd.DataFrame) -> pd.DataFrame:
     out["home_goals"] = out["home_goals"].astype(int)
     out["away_goals"] = out["away_goals"].astype(int)
 
-    out["match_id"] = (
-        out["div"] + "_" + out["season"] + "_"
-        + out["date"].dt.strftime("%Y%m%d") + "_"
-        + out["home_team"].map(_slug) + "_" + out["away_team"].map(_slug)
-    )
+    out["match_id"] = [
+        make_match_id(div, date, home, away, season=season)
+        for div, season, date, home, away in zip(
+            out["div"], out["season"], out["date"], out["home_team"], out["away_team"]
+        )
+    ]
 
     out = out.sort_values(["date", "div", "home_team"]).reset_index(drop=True)
     if out["match_id"].duplicated().any():

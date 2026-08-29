@@ -34,11 +34,11 @@ jobs:
       - name: Render this weekend's predictions
         run: python -m scripts.render_coupon
 
-      - name: Commit updated page
+      - name: Commit updated page and prediction log
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html
+          git add docs/index.html artefacts/prediction_log.csv
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Auto-update weekend predictions [skip ci]"
           git push

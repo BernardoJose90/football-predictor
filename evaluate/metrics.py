@@ -72,8 +72,17 @@ def log_loss_series(df: pd.DataFrame,
 def summary(df: pd.DataFrame,
             cols=("p_home", "p_draw", "p_away"),
             outcome_col: str = "result") -> dict:
-    """Mean RPS, mean log loss and n over a predictions frame."""
+    """Mean RPS, mean log loss and n over a predictions frame.
+
+    Safe on a frame with zero scored rows (e.g. a baseline's warmup period
+    consuming the whole window) - `.apply(axis=1)` on an empty DataFrame
+    returns the frame itself rather than an empty Series, so a downstream
+    `.mean()` would otherwise blow up on any non-numeric column instead of
+    just reporting nothing to average.
+    """
     scored = df.dropna(subset=list(cols) + [outcome_col])
+    if scored.empty:
+        return {"n": 0, "rps": float("nan"), "log_loss": float("nan")}
     return {
         "n": int(len(scored)),
         "rps": float(rps_series(scored, cols, outcome_col).mean()),

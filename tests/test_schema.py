@@ -76,3 +76,24 @@ def test_match_id_is_unique_and_stable():
     out1 = schema.normalise(raw)
     out2 = schema.normalise(raw)
     assert out1.loc[0, "match_id"] == out2.loc[0, "match_id"]
+
+
+def test_season_code_uses_july_cutover():
+    # A 2025/26 season match_id is "2526" whether the fixture is in August
+    # (start of the season) or the following May (still that same season).
+    assert schema.season_code("2025-08-15") == "2526"
+    assert schema.season_code("2026-05-01") == "2526"
+    # July 1st itself already counts as the new season starting.
+    assert schema.season_code("2026-07-01") == "2627"
+    assert schema.season_code("2026-06-30") == "2526"
+
+
+def test_make_match_id_matches_the_id_normalise_will_later_assign():
+    # This is the whole point of the helper: scripts.predict_upcoming keys a
+    # not-yet-played fixture with make_match_id() so that once the result
+    # comes in and the row runs through normalise(), evaluate.prediction_log
+    # can join the two on match_id and find the same row.
+    upcoming_id = schema.make_match_id("E0", "2025-08-15", "Arsenal", "Chelsea")
+    raw = pd.DataFrame([_raw_row(Date="15/08/2025")])
+    played = schema.normalise(raw)
+    assert upcoming_id == played.loc[0, "match_id"]

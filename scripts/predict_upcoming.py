@@ -33,7 +33,9 @@ travel do.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -44,7 +46,7 @@ from ingest import fpl as fpl_mod
 from ingest import historical
 from ingest import squad_value as squad_value_mod
 from model.injuries import injury_factor
-from model.predict import predict_match
+from model.predict import expected_goals, predict_match
 from model.ratings import build_ratings
 from model.referee import build_referee_factors
 from model.rest import rest_factor
@@ -148,7 +150,15 @@ def main(argv=None) -> int:
     ap.add_argument("--travel-k", type=float, default=config.TRAVEL_K)
     ap.add_argument("--value-prior-min-points", type=int, default=config.VALUE_PRIOR_MIN_POINTS)
     ap.add_argument("--out", default=None,
-                    help="output CSV path (default: artefacts/upcoming_predictions.csv)")
+                    help="output CSV path (default: artefacts/upcoming_predictions.csv). "
+                         "A richer per-fixture .json (ratings, per-adjustment breakdown, "
+                         "pre-adjustment probabilities) is always written alongside it, "
+                         "with the same stem - that's what scripts.render_why reads.")
+    ap.add_argument("--log-predictions", action="store_true",
+                    help="append this run's rated fixtures to artefacts/prediction_log.csv "
+                         "(first prediction per fixture wins, never overwritten) - the standing "
+                         "record scripts.track_record scores. scripts.render_coupon passes this "
+                         "so the published page and the track record stay in lockstep.")
     args = ap.parse_args(argv)
 
     today = pd.Timestamp(args.start).normalize() if args.start else pd.Timestamp.now().normalize()
@@ -279,12 +289,20 @@ def main(argv=None) -> int:
         for row in group.sort_values("date").itertuples(index=False):
             lam_mult, mu_mult = 1.0, 1.0
             adj_note = []
+            # Structured, machine-readable twin of adj_note: one entry per
+            # adjustment that actually moved the number, with its direction and
+            # size, so scripts.render_why can narrate the model/market gap
+            # instead of re-deriving it. Each factor > 1 lifts that side's
+            # expected goals, < 1 suppresses it.
+            adjustments = []
             if args.use_referee and ref_factors is not None:
                 rh, ra = ref_factors.factor(row.referee)
                 if (rh, ra) != (1.0, 1.0):
                     lam_mult *= rh
                     mu_mult *= ra
                     adj_note.append(f"ref={row.referee}({rh:.2f}/{ra:.2f})")
+                    adjustments.append({"kind": "referee", "detail": str(row.referee),
+                                        "home_factor": round(rh, 4), "away_factor": round(ra, 4)})
             home_rest = away_rest = None
             if args.use_rest or args.use_travel:
                 home_last = last_match_by_team.get(row.home_team)
@@ -297,12 +315,19 @@ def main(argv=None) -> int:
                 mu_mult *= rf_a
                 if home_rest is not None or away_rest is not None:
                     adj_note.append(f"rest={home_rest}d/{away_rest}d")
+                if (rf_h, rf_a) != (1.0, 1.0):
+                    adjustments.append({"kind": "rest",
+                                        "detail": f"{home_rest}d home / {away_rest}d away",
+                                        "home_factor": round(rf_h, 4), "away_factor": round(rf_a, 4)})
             if args.use_travel:
                 dist = trip_distance_km(row.home_team, row.away_team)
                 tf = travel_factor(dist, rest_days=away_rest, k=args.travel_k)
                 mu_mult *= tf
                 if dist is not None:
                     adj_note.append(f"travel={round(dist)}km({tf:.2f})")
+                    if tf != 1.0:
+                        adjustments.append({"kind": "travel", "detail": f"{round(dist)} km",
+                                            "home_factor": 1.0, "away_factor": round(tf, 4)})
             if snap.is_prior(row.home_team):
                 adj_note.append(f"home rated by squad value (€{squad_values[row.home_team]/1e6:.0f}m)")
             if snap.is_prior(row.away_team):
@@ -320,6 +345,13 @@ def main(argv=None) -> int:
                 if away_avail and away_avail["n_flagged"]:
                     adj_note.append(f"away availability {away_avail['availability']:.0%} "
                                     f"({away_avail['n_flagged']} flagged, {af:.2f})")
+                if hf != 1.0 or af != 1.0:
+                    adjustments.append({
+                        "kind": "injuries",
+                        "detail": (f"home {home_avail['availability']:.0%} avail" if hf != 1.0 else "")
+                                  + (" / " if hf != 1.0 and af != 1.0 else "")
+                                  + (f"away {away_avail['availability']:.0%} avail" if af != 1.0 else ""),
+                        "home_factor": round(hf, 4), "away_factor": round(af, 4)})
 
             pred = predict_match(snap, row.home_team, row.away_team, rho=args.rho,
                                  delta=args.delta, lam_mult=lam_mult, mu_mult=mu_mult)
@@ -332,6 +364,14 @@ def main(argv=None) -> int:
                                 "home_team": row.home_team, "away_team": row.away_team,
                                 "unrated": True})
                 continue
+
+            # The same fixture priced with the section-10.1 adjustments turned
+            # off (lam_mult=mu_mult=1) - the "pure ratings + Dixon-Coles" number.
+            # render_why shows this next to the adjusted one so a reader can see
+            # how much of any model/market gap is the ratings vs the nudges.
+            base_pred = predict_match(snap, row.home_team, row.away_team,
+                                      rho=args.rho, delta=args.delta)
+            base_lam, base_mu = expected_goals(snap, row.home_team, row.away_team)
             line = (f"  {when}  {row.home_team:20s} v {row.away_team:20s}  "
                     f"model: {pred['p_home']*100:4.1f}% / {pred['p_draw']*100:4.1f}% / "
                     f"{pred['p_away']*100:4.1f}%  (likely {pred['likely_score']})")
@@ -341,10 +381,28 @@ def main(argv=None) -> int:
             if adj_note:
                 line += "   [" + ", ".join(adj_note) + "]"
             print(line)
+            hg = snap.teams.get(row.home_team, {}).get("matches")
+            ag = snap.teams.get(row.away_team, {}).get("matches")
             rec = {"league": row.league, "date": row.date, "home_team": row.home_team,
                    "away_team": row.away_team, "unrated": False,
+                   "match_id": schema.make_match_id(div, row.date, row.home_team, row.away_team),
                    "lam_mult": lam_mult, "mu_mult": mu_mult,
-                   "adj_note": ", ".join(adj_note) if adj_note else "", **pred}
+                   "adj_note": ", ".join(adj_note) if adj_note else "",
+                   "adjustments": adjustments,
+                   "stat_used": stat_used,
+                   "home_attack": round(snap.attack(row.home_team), 4),
+                   "home_defence": round(snap.defence(row.home_team), 4),
+                   "away_attack": round(snap.attack(row.away_team), 4),
+                   "away_defence": round(snap.defence(row.away_team), 4),
+                   "home_matches_used": int(hg) if hg is not None else None,
+                   "away_matches_used": int(ag) if ag is not None else None,
+                   "lg_home_goals": round(snap.lg_home_goals, 4),
+                   "lg_away_goals": round(snap.lg_away_goals, 4),
+                   "base_home_pred": round(float(base_lam), 3),
+                   "base_away_pred": round(float(base_mu), 3),
+                   "base_p_home": base_pred["p_home"], "base_p_draw": base_pred["p_draw"],
+                   "base_p_away": base_pred["p_away"],
+                   **pred}
             if mkt:
                 rec.update({f"market_{k}": v for k, v in mkt.items()})
             results.append(rec)
@@ -352,8 +410,24 @@ def main(argv=None) -> int:
 
     out = pd.DataFrame(results)
     out_path = args.out or (config.ARTEFACTS / "upcoming_predictions.csv")
-    out.to_csv(out_path, index=False)
+    out.drop(columns=["adjustments"], errors="ignore").to_csv(out_path, index=False)
+    def _jsonable(rec: dict) -> dict:
+        d = dict(rec)
+        if isinstance(d.get("date"), pd.Timestamp):
+            d["date"] = d["date"].strftime("%Y-%m-%dT%H:%M")
+        return d
+
+    json_path = Path(out_path).with_suffix(".json")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump([_jsonable(r) for r in results], fh, default=str, indent=2)
     print(f"-> {out_path}")
+    print(f"-> {json_path}")
+
+    if args.log_predictions:
+        from evaluate import prediction_log
+        n_new = prediction_log.append(results)
+        print(f"-> prediction_log.csv (+{n_new} new fixture(s))")
+
     if adjustments_off:
         print("(plain model - referee/rest/travel adjustments disabled via --no-*; "
               "these are ON by default, see README Milestone 4 section)")

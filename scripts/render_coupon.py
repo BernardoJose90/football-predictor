@@ -7,6 +7,11 @@ Runs `scripts.predict_upcoming` (refreshing data by default), then renders
 GitHub Pages serves (see .github/workflows/weekly-predictions.yml). This is
 the one script both the manual workflow and the CI schedule call, so the
 auto-updating page and any local run always go through the same code path.
+
+Always passes --log-predictions through to scripts.predict_upcoming, so every
+published fixture is appended to artefacts/prediction_log.csv (first
+prediction wins - see evaluate.prediction_log) - the standing record
+scripts.track_record scores for the public track-record page (#5).
 """
 from __future__ import annotations
 
@@ -81,7 +86,7 @@ def main(argv=None) -> int:
                          "pass this to render without the experimental PL injuries adjustment")
     args = ap.parse_args(argv)
 
-    predict_argv = ["--days", str(args.days)]
+    predict_argv = ["--days", str(args.days), "--log-predictions"]
     if args.refresh:
         predict_argv.append("--refresh")
     if args.injuries:

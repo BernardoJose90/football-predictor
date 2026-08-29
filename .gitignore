@@ -12,5 +12,11 @@ data/processed/*
 .venv/
 __pycache__/
 *.pyc
-artefacts/
+# `artefacts/*` (not a bare directory pattern) so the negation below can
+# actually un-ignore one file inside it - same reasoning as data/processed/*
+# above. prediction_log.csv is the standing, append-only record a public
+# track record is scored from (evaluate.prediction_log) - it belongs in git
+# history like any other record, not regenerated on every run.
+artefacts/*
+!artefacts/prediction_log.csv
 .pytest_cache/

@@ -233,6 +233,57 @@ Fixed by weighting on FPL's own `now_cost` (transfer-market price) instead,
 which reputable players keep even while absent. Regression test:
 `test_season_long_absentee_with_zero_points_still_weighted_by_cost`.
 
+## Public-facing apps: the weekly page, the explainer, and the track record
+
+Three things built on top of the model, all reading `scripts.predict_upcoming`'s
+output rather than re-deriving anything:
+
+**Weekend Coupon** (`scripts/render_coupon.py` -> `docs/index.html`, served by
+GitHub Pages). Runs `predict_upcoming` fresh, renders `web/coupon_template.html`
+with the result, and always passes `--log-predictions` so every published
+fixture is appended to the standing record below. `.github/workflows/weekly-predictions.yml`
+runs it Thursday and Saturday mornings (UTC) and commits the regenerated page
+and log - the one script both CI and a local run go through, so they can
+never drift apart.
+
+**The Working** (`scripts/render_why.py`). For fixtures where the model and
+the market disagree by 5+ points, splits the gap in two: `base_p_*` is the
+same fixture priced with every section-10.1 adjustment turned off (plain
+ratings + Dixon-Coles), `p_*` is what actually shipped. A big gap with little
+movement between the two means the *core ratings* disagree with the market;
+a gap that mostly closes at `base_p_*` means the *adjustments* (referee,
+rest, travel, injuries) are doing the disagreeing. Reads the rich per-fixture
+JSON `predict_upcoming` always writes next to its CSV - nothing is
+recomputed.
+
+**The Ledger** (`evaluate/prediction_log.py` + `evaluate/track_record.py` +
+`scripts/track_record.py`). Two kinds of evidence, kept separate:
+
+- *Live*: `evaluate/prediction_log.py` is an append-only CSV
+  (`artefacts/prediction_log.csv`, tracked in git) of every fixture actually
+  published, keyed by `normalise.schema.make_match_id` so a not-yet-played
+  fixture's row lines up with the exact row `normalise()` will later produce
+  once the result is in. **First prediction wins** - logged the first time a
+  fixture appears (usually Thursday) and never overwritten by Saturday's
+  better-informed number, on purpose: the point is reporting what was said
+  when it was first committed to, not a number tidied up with hindsight.
+  `evaluate/track_record.py` joins this log to results as they resolve and
+  scores it (RPS, hit rate, calibration, cumulative RPS curve, vs the
+  fixture's own logged market price). It starts thin - it can only ever cover
+  fixtures predicted since logging began - and fills in one matchday at a
+  time.
+- *Validation*: the same walk-forward backtest as the Evaluation section
+  below, run with the model's current production config, shown alongside the
+  live numbers as long-run evidence that doesn't depend on how many weeks the
+  live log has been running.
+
+`scripts/track_record.py` produces one JSON with both. None of these three
+pages auto-publish themselves the way the Weekend Coupon does - they're
+Claude Artifacts, which (unlike GitHub Pages) can only be republished from a
+live Claude session, not driven by a cron job - so refreshing them is a
+manual `python -m scripts.render_why` / `python -m scripts.track_record` plus
+a re-publish.
+
 ## Evaluation
 
 `python -m scripts.run_backtest --eval-start 2025-08-01 --stat sot` (walk-forward
@@ -294,10 +345,17 @@ evaluate/
   baselines.py          devig, Elo proxy
   backtest.py            walk-forward runner (referee/rest/travel ON by default, squad-value OFF)
   tune.py                 xi sweep + plot, stat comparison
+  prediction_log.py       append-only, first-prediction-wins log of published fixtures
+  track_record.py         scores prediction_log.py's log against results as they resolve
 scripts/
   build_dataset.py, run_backtest.py, run_tune.py, predict_upcoming.py    entry points
-tests/                 104 tests incl. leakage-guard tests for ratings, referee, rest, travel
-data/raw/, data/processed/, artefacts/
+  render_coupon.py       predict_upcoming -> docs/index.html (GitHub Pages), always logs
+  render_why.py           model-vs-market gap explainer, from predict_upcoming's own JSON
+  track_record.py         live log + walk-forward validation -> one JSON for the track-record page
+web/coupon_template.html  static HTML/JS template render_coupon.py fills in
+.github/workflows/weekly-predictions.yml   Thu/Sat cron + manual dispatch for render_coupon.py
+tests/                 tests incl. leakage-guard tests for ratings, referee, rest, travel
+data/raw/, data/processed/, artefacts/   artefacts/prediction_log.csv is the one artefact tracked in git
 ```
 
 ## Design decisions worth flagging
