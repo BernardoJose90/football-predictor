@@ -11,12 +11,12 @@
     --line-strong: rgba(20,24,29,0.22);
     --amber: #b9791c;
     --amber-ink: #6e4610;
-    --home: #2f7a52;
-    --home-bg: rgba(47,122,82,0.14);
-    --draw: #93762f;
-    --draw-bg: rgba(147,118,47,0.14);
-    --away: #6a3f7a;
-    --away-bg: rgba(106,63,122,0.14);
+    --home: #1baf7a;
+    --home-bg: rgba(27,175,122,0.13);
+    --draw: #eb6834;
+    --draw-bg: rgba(235,104,52,0.13);
+    --away: #2a78d6;
+    --away-bg: rgba(42,120,214,0.13);
     --gap-flag: #a8461f;
     --gap-flag-bg: rgba(168,70,31,0.13);
     --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
@@ -32,12 +32,12 @@
       --line-strong: rgba(233,236,228,0.22);
       --amber: #e3ac4c;
       --amber-ink: #f0c274;
-      --home: #4fa878;
-      --home-bg: rgba(79,168,120,0.16);
-      --draw: #c7a565;
-      --draw-bg: rgba(199,165,101,0.16);
-      --away: #a875b8;
-      --away-bg: rgba(168,117,184,0.18);
+      --home: #199e70;
+      --home-bg: rgba(25,158,112,0.16);
+      --draw: #d95926;
+      --draw-bg: rgba(217,89,38,0.16);
+      --away: #3987e5;
+      --away-bg: rgba(57,135,229,0.16);
       --gap-flag: #e07a4c;
       --gap-flag-bg: rgba(224,122,76,0.16);
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
@@ -53,12 +53,12 @@
     --line-strong: rgba(233,236,228,0.22);
     --amber: #e3ac4c;
     --amber-ink: #f0c274;
-    --home: #4fa878;
-    --home-bg: rgba(79,168,120,0.16);
-    --draw: #c7a565;
-    --draw-bg: rgba(199,165,101,0.16);
-    --away: #a875b8;
-    --away-bg: rgba(168,117,184,0.18);
+    --home: #199e70;
+    --home-bg: rgba(25,158,112,0.16);
+    --draw: #d95926;
+    --draw-bg: rgba(217,89,38,0.16);
+    --away: #3987e5;
+    --away-bg: rgba(57,135,229,0.16);
     --gap-flag: #e07a4c;
     --gap-flag-bg: rgba(224,122,76,0.16);
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
@@ -277,7 +277,8 @@
   .prob-row { display: grid; grid-template-columns: 3.6rem 1fr; gap: 0.55rem; align-items: center; margin-top: 0.3rem; }
   .prob-row:first-of-type { margin-top: 0; }
   .prob-label { font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); }
-  .bar { display: flex; height: 1.15rem; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .bar { display: flex; height: 1.15rem; border-radius: 4px; gap: 2px; background: var(--paper-raised); }
+  .seg:first-child { border-radius: 4px 0 0 4px; } .seg:last-child { border-radius: 0 4px 4px 0; }
   .bar.market { height: 0.65rem; opacity: 0.82; }
   .seg { display: flex; align-items: center; justify-content: center; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; color: var(--paper); white-space: nowrap; overflow: hidden; }
   .seg.home { background: var(--home); }
@@ -371,7 +372,7 @@
     with the bookmaker's margin removed, for comparison only. Full numbers in the project
     README.
   </p>
-  <p style="margin-top:0.75rem">Auto-generated 2026-08-29 10:54 UTC.</p>
+  <p style="margin-top:0.75rem">Auto-generated 2026-08-29 11:14 UTC.</p>
 </footer>
 
 <script>

@@ -5,8 +5,12 @@
     --paper: #eef0e8; --paper-raised: #f7f8f2; --ink: #14181d; --ink-soft: #454e46;
     --ink-faint: #7a8279; --line: rgba(20,24,29,0.13); --line-strong: rgba(20,24,29,0.22);
     --amber: #b9791c; --amber-ink: #6e4610;
-    --model: #2f7a52; --market: #a8461f; --elo: #6a3f7a;
-    --good: #2f7a52; --bad: #a8461f; --neutral: #7a8279;
+    /* chart series — validated colourblind-safe (dataviz validator, light surface #f7f8f2) */
+    --viz-model: #2a78d6; --viz-elo: #1baf7a; --viz-alt: #eb6834;
+    --viz-ref: #7a8279;            /* market = neutral reference, not a rival */
+    --viz-band: rgba(42,120,214,0.09);
+    --viz-grid: rgba(20,24,29,0.10); --viz-surface: #f7f8f2;
+    --good: #0ca30c; --bad: #d03b3b; --neutral: #7a8279;
     --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
   }
   @media (prefers-color-scheme: dark) {
@@ -14,8 +18,10 @@
       --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
       --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
       --amber: #e3ac4c; --amber-ink: #f0c274;
-      --model: #4fa878; --market: #e07a4c; --elo: #a875b8;
-      --good: #4fa878; --bad: #e07a4c; --neutral: #767f77;
+      --viz-model: #3987e5; --viz-elo: #199e70; --viz-alt: #d95926;
+      --viz-ref: #8b938a; --viz-band: rgba(57,135,229,0.14);
+      --viz-grid: rgba(233,236,228,0.10); --viz-surface: #171c23;
+      --good: #3fb93f; --bad: #e06666; --neutral: #8b938a;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
     }
   }
@@ -23,8 +29,10 @@
     --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
     --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
     --amber: #e3ac4c; --amber-ink: #f0c274;
-    --model: #4fa878; --market: #e07a4c; --elo: #a875b8;
-    --good: #4fa878; --bad: #e07a4c; --neutral: #767f77;
+    --viz-model: #3987e5; --viz-elo: #199e70; --viz-alt: #d95926;
+    --viz-ref: #8b938a; --viz-band: rgba(57,135,229,0.14);
+    --viz-grid: rgba(233,236,228,0.10); --viz-surface: #171c23;
+    --good: #3fb93f; --bad: #e06666; --neutral: #8b938a;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
   }
 
@@ -76,22 +84,40 @@
   .panel { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px;
     padding: 1rem 1.15rem; box-shadow: var(--shadow); margin-bottom: 1.25rem; }
   .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--ink-faint); margin: 0 0 0.75rem; }
-  .chart-wrap { overflow-x: auto; }
-  svg.chart { display: block; max-width: 100%; height: auto; }
-  .legend { display: flex; gap: 1rem; font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.5rem; flex-wrap: wrap; }
-  .legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
-  .dot { width: 0.6rem; height: 0.6rem; border-radius: 2px; display: inline-block; }
+    color: var(--ink-faint); margin: 0 0 0.15rem; }
+  .panel .cap { font-size: 0.78rem; color: var(--ink-faint); margin: 0 0 0.75rem; }
+  .chart-wrap { position: relative; overflow-x: auto; }
+  svg.chart { display: block; max-width: 100%; height: auto; touch-action: none; }
+  .legend { display: flex; gap: 1rem; font-size: 0.72rem; color: var(--ink-soft); margin-top: 0.5rem; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .legend .lk { width: 0.9rem; height: 0; border-top: 2px solid currentColor; display: inline-block; }
+  .legend .lk.dash { border-top-style: dashed; }
+  .legend .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; }
+
+  .viz-tip { position: absolute; pointer-events: none; z-index: 5; background: var(--paper);
+    border: 1px solid var(--line-strong); border-radius: 7px; padding: 0.45rem 0.6rem;
+    font-size: 0.74rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.1s;
+    min-width: 8rem; }
+  .viz-tip .tx { font-family: "IBM Plex Mono", monospace; color: var(--ink-faint); font-size: 0.68rem;
+    display: block; margin-bottom: 0.25rem; }
+  .viz-tip .row { display: flex; align-items: center; gap: 0.4rem; justify-content: space-between; }
+  .viz-tip .row .k { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ink-soft); }
+  .viz-tip .row .k i { width: 0.85rem; height: 0; border-top: 2px solid currentColor; display: inline-block; }
+  .viz-tip .row .v { font-family: "IBM Plex Mono", monospace; font-weight: 600; color: var(--ink); }
 
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); }
   th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); font-weight: 600; }
-  td.num, th.num { text-align: right; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .verdict { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; padding: 0.1rem 0.45rem; border-radius: 5px; }
-  .verdict.good { color: var(--good); background: rgba(47,122,82,0.13); }
-  .verdict.bad { color: var(--bad); background: rgba(168,70,31,0.13); }
+  .verdict.good { color: var(--good); background: rgba(12,163,12,0.13); }
+  .verdict.bad { color: var(--bad); background: rgba(208,59,59,0.13); }
   .verdict.neutral { color: var(--neutral); background: var(--line); }
   .called-y { color: var(--good); } .called-n { color: var(--ink-faint); }
+
+  details.tableview { margin-top: 0.6rem; }
+  details.tableview summary { font-size: 0.72rem; color: var(--ink-faint); cursor: pointer; font-family: "IBM Plex Mono", monospace; }
+  details.tableview table { margin-top: 0.5rem; }
 
   .note { font-size: 0.85rem; color: var(--ink-soft); background: var(--line); border-radius: 8px;
     padding: 0.75rem 1rem; margin-bottom: 1.25rem; }
@@ -101,6 +127,7 @@
   footer p { max-width: 68ch; }
 
   @media (max-width: 560px) { .scroll-x { overflow-x: auto; } }
+  @media (prefers-reduced-motion: reduce) { .viz-tip { transition: none; } }
 </style>
 
 <header>
@@ -109,7 +136,7 @@
       <p class="eyebrow">What we said · what happened</p>
       <h1>The Ledger</h1>
     </div>
-    <div class="generated">2026-08-29 10:57 UTC</div>
+    <div class="generated">2026-08-29 11:14 UTC</div>
   </div>
   <nav class="site">
     <a href="./index.html">Weekend Coupon</a>
@@ -126,7 +153,9 @@
     near-empty and fills one matchday at a time. The <strong>validation
     backtest</strong> is the same model run walk-forward over three seasons of
     history at its current settings — thousands of matches of context that
-    doesn't depend on how long the live log has been running.
+    doesn't depend on how long the live log has been running. The shaded band on
+    the RPS charts is the published range for football forecasts, roughly
+    0.184–0.213 (Constantinou &amp; Fenton).
   </p>
 
   <section id="live">
@@ -143,90 +172,156 @@
 <footer>
   <p>
     <strong style="color:var(--ink)">Not a betting recommendation.</strong> RPS is
-    the ranked probability score (Constantinou &amp; Fenton 2012); lower is better,
-    the published band for football is roughly 0.184–0.213. "Market" is the
-    fixture's pre-match price with the bookmaker's margin removed. Significance is
-    a paired Diebold-Mariano test on the per-match RPS difference. The scoreline
-    row is scored on the model's single most-likely score, which is a by-product
-    of the grid, not its main output — exact-score accuracy tops out near 12% for
-    anyone, so the "always 1-1" baseline is shown next to it. Full method in the
-    project README.
+    the ranked probability score (Constantinou &amp; Fenton 2012); lower is better.
+    "Market" is the fixture's pre-match price with the bookmaker's margin removed —
+    drawn as a dashed reference line because it's the benchmark, not a competitor.
+    Significance is a paired Diebold-Mariano test on the per-match RPS difference.
+    The scoreline row is scored on the model's single most-likely score, a
+    by-product of the grid rather than its main output — exact-score accuracy
+    tops out near 12% for anyone, so the "always 1-1" baseline is shown beside it.
+    Colours are checked colourblind-safe; every chart has a table view. Full
+    method in the project README.
   </p>
 </footer>
 
 <script>
-  const DATA = {"generated":"2026-08-29 10:57 UTC","live":{"generated_at":"2026-08-29 10:57 UTC","n_logged":54,"n_scored":0,"n_pending":54,"n_with_market":54,"first_logged":"2026-08-29T02:29:42Z","span":null,"model":null,"market":null,"cumulative":[],"calibration":[],"scoreline":null,"by_league":[],"fixtures":[]},"validation":{"window":{"start":"2025-08-01","end":"2026-08-27"},"config":{"stat":"auto","xi":0.0035,"rho":0.1,"delta":0.2,"referee":true,"rest":true,"travel":true},"headline":{"model_rps":0.2044,"model_log_loss":1.0018,"model_n":2815,"coverage":0.9549,"devig_rps":0.1977,"devig_n":2815,"elo_rps":0.2053,"elo_n":2815,"calibration_error":0.0155,"beats_elo":true,"beats_elo_significant":false,"gap_to_market":0.0067,"gap_to_market_significant":true},"monthly":{"model":[{"month":"2025-08","rps":0.2067,"running":0.2067,"n":188},{"month":"2025-09","rps":0.1968,"running":0.2017,"n":195},{"month":"2025-10","rps":0.2075,"running":0.2039,"n":236},{"month":"2025-11","rps":0.2097,"running":0.2058,"n":305},{"month":"2025-12","rps":0.202,"running":0.2049,"n":311},{"month":"2026-01","rps":0.2021,"running":0.2042,"n":350},{"month":"2026-02","rps":0.1925,"running":0.2023,"n":321},{"month":"2026-03","rps":0.2051,"running":0.2026,"n":261},{"month":"2026-04","rps":0.2028,"running":0.2026,"n":310},{"month":"2026-05","rps":0.2252,"running":0.2047,"n":250},{"month":"2026-07","rps":0.1398,"running":0.2047,"n":1},{"month":"2026-08","rps":0.1967,"running":0.2044,"n":87}],"devig":[{"month":"2025-08","rps":0.1965,"running":0.1965,"n":188},{"month":"2025-09","rps":0.1965,"running":0.1965,"n":195},{"month":"2025-10","rps":0.2002,"running":0.1979,"n":236},{"month":"2025-11","rps":0.1925,"running":0.1961,"n":305},{"month":"2025-12","rps":0.1973,"running":0.1964,"n":311},{"month":"2026-01","rps":0.1948,"running":0.1961,"n":350},{"month":"2026-02","rps":0.1904,"running":0.1951,"n":321},{"month":"2026-03","rps":0.2033,"running":0.1961,"n":261},{"month":"2026-04","rps":0.1939,"running":0.1958,"n":310},{"month":"2026-05","rps":0.2162,"running":0.1977,"n":250},{"month":"2026-07","rps":0.1832,"running":0.1977,"n":1},{"month":"2026-08","rps":0.1999,"running":0.1977,"n":87}],"elo":[{"month":"2025-08","rps":0.205,"running":0.205,"n":188},{"month":"2025-09","rps":0.2033,"running":0.2041,"n":195},{"month":"2025-10","rps":0.2044,"running":0.2042,"n":236},{"month":"2025-11","rps":0.2103,"running":0.2062,"n":305},{"month":"2025-12","rps":0.2026,"running":0.2053,"n":311},{"month":"2026-01","rps":0.2036,"running":0.2049,"n":350},{"month":"2026-02","rps":0.1979,"running":0.2038,"n":321},{"month":"2026-03","rps":0.2088,"running":0.2044,"n":261},{"month":"2026-04","rps":0.2016,"running":0.204,"n":310},{"month":"2026-05","rps":0.2202,"running":0.2055,"n":250},{"month":"2026-07","rps":0.1683,"running":0.2055,"n":1},{"month":"2026-08","rps":0.1992,"running":0.2053,"n":87}]},"calibration":{"home":[{"predicted":0.0802,"observed":0.0,"n":17},{"predicted":0.1663,"observed":0.1382,"n":152},{"predicted":0.2537,"observed":0.2581,"n":403},{"predicted":0.352,"observed":0.3443,"n":671},{"predicted":0.4473,"observed":0.4496,"n":674},{"predicted":0.5453,"observed":0.5293,"n":478},{"predicted":0.6457,"observed":0.7154,"n":267},{"predicted":0.7405,"observed":0.7478,"n":115},{"predicted":0.8335,"observed":0.8947,"n":38}],"draw":[{"predicted":0.0901,"observed":0.1111,"n":9},{"predicted":0.1691,"observed":0.1357,"n":280},{"predicted":0.2567,"observed":0.2715,"n":2306},{"predicted":0.3158,"observed":0.2636,"n":220}],"away":[{"predicted":0.0743,"observed":0.0472,"n":106},{"predicted":0.1553,"observed":0.1331,"n":496},{"predicted":0.2513,"observed":0.2512,"n":800},{"predicted":0.3472,"observed":0.3394,"n":710},{"predicted":0.4463,"observed":0.4271,"n":384},{"predicted":0.5423,"observed":0.5631,"n":222},{"predicted":0.6382,"observed":0.6389,"n":72},{"predicted":0.7426,"observed":0.8571,"n":21},{"predicted":0.828,"observed":0.75,"n":4}]},"brier":{"reliability":0.00148,"resolution":0.05139,"uncertainty":0.64998,"brier":0.5986,"n":2815},"sharpness":{"entropy":1.0102,"mean_max_prob":0.5016,"n":2815},"significance":{"market":{"n":2815,"mean_diff":0.00668,"dm_stat":5.786,"p_value":0.0,"ci_low":0.0044,"ci_high":0.00892},"elo":{"n":2815,"mean_diff":-0.00087,"dm_stat":-0.776,"p_value":0.43786,"ci_low":-0.00307,"ci_high":0.00136}},"by_season":[{"season":"2526","rps":0.2047,"n":2727},{"season":"2627","rps":0.1961,"n":88}],"leagues":[{"league":"Primeira Liga","rps":0.1771,"n":310},{"league":"Bundesliga","rps":0.1957,"n":298},{"league":"Scottish Premiership","rps":0.2012,"n":233},{"league":"La Liga","rps":0.2012,"n":373},{"league":"Ligue 1","rps":0.2015,"n":305},{"league":"Serie A","rps":0.2017,"n":373},{"league":"Premier League","rps":0.2099,"n":371},{"league":"EFL Championship","rps":0.2278,"n":552}]}};
+  const DATA = {"generated":"2026-08-29 11:14 UTC","live":{"generated_at":"2026-08-29 11:14 UTC","n_logged":54,"n_scored":0,"n_pending":54,"n_with_market":54,"first_logged":"2026-08-29T02:29:42Z","span":null,"model":null,"market":null,"cumulative":[],"calibration":[],"scoreline":null,"by_league":[],"fixtures":[]},"validation":{"window":{"start":"2025-08-01","end":"2026-08-27"},"config":{"stat":"auto","xi":0.0035,"rho":0.1,"delta":0.2,"referee":true,"rest":true,"travel":true},"headline":{"model_rps":0.2044,"model_log_loss":1.0018,"model_n":2815,"coverage":0.9549,"devig_rps":0.1977,"devig_n":2815,"elo_rps":0.2053,"elo_n":2815,"calibration_error":0.0155,"beats_elo":true,"beats_elo_significant":false,"gap_to_market":0.0067,"gap_to_market_significant":true},"monthly":{"model":[{"month":"2025-08","rps":0.2067,"running":0.2067,"n":188},{"month":"2025-09","rps":0.1968,"running":0.2017,"n":195},{"month":"2025-10","rps":0.2075,"running":0.2039,"n":236},{"month":"2025-11","rps":0.2097,"running":0.2058,"n":305},{"month":"2025-12","rps":0.202,"running":0.2049,"n":311},{"month":"2026-01","rps":0.2021,"running":0.2042,"n":350},{"month":"2026-02","rps":0.1925,"running":0.2023,"n":321},{"month":"2026-03","rps":0.2051,"running":0.2026,"n":261},{"month":"2026-04","rps":0.2028,"running":0.2026,"n":310},{"month":"2026-05","rps":0.2252,"running":0.2047,"n":250},{"month":"2026-07","rps":0.1398,"running":0.2047,"n":1},{"month":"2026-08","rps":0.1967,"running":0.2044,"n":87}],"devig":[{"month":"2025-08","rps":0.1965,"running":0.1965,"n":188},{"month":"2025-09","rps":0.1965,"running":0.1965,"n":195},{"month":"2025-10","rps":0.2002,"running":0.1979,"n":236},{"month":"2025-11","rps":0.1925,"running":0.1961,"n":305},{"month":"2025-12","rps":0.1973,"running":0.1964,"n":311},{"month":"2026-01","rps":0.1948,"running":0.1961,"n":350},{"month":"2026-02","rps":0.1904,"running":0.1951,"n":321},{"month":"2026-03","rps":0.2033,"running":0.1961,"n":261},{"month":"2026-04","rps":0.1939,"running":0.1958,"n":310},{"month":"2026-05","rps":0.2162,"running":0.1977,"n":250},{"month":"2026-07","rps":0.1832,"running":0.1977,"n":1},{"month":"2026-08","rps":0.1999,"running":0.1977,"n":87}],"elo":[{"month":"2025-08","rps":0.205,"running":0.205,"n":188},{"month":"2025-09","rps":0.2033,"running":0.2041,"n":195},{"month":"2025-10","rps":0.2044,"running":0.2042,"n":236},{"month":"2025-11","rps":0.2103,"running":0.2062,"n":305},{"month":"2025-12","rps":0.2026,"running":0.2053,"n":311},{"month":"2026-01","rps":0.2036,"running":0.2049,"n":350},{"month":"2026-02","rps":0.1979,"running":0.2038,"n":321},{"month":"2026-03","rps":0.2088,"running":0.2044,"n":261},{"month":"2026-04","rps":0.2016,"running":0.204,"n":310},{"month":"2026-05","rps":0.2202,"running":0.2055,"n":250},{"month":"2026-07","rps":0.1683,"running":0.2055,"n":1},{"month":"2026-08","rps":0.1992,"running":0.2053,"n":87}]},"calibration":{"home":[{"predicted":0.0802,"observed":0.0,"n":17},{"predicted":0.1663,"observed":0.1382,"n":152},{"predicted":0.2537,"observed":0.2581,"n":403},{"predicted":0.352,"observed":0.3443,"n":671},{"predicted":0.4473,"observed":0.4496,"n":674},{"predicted":0.5453,"observed":0.5293,"n":478},{"predicted":0.6457,"observed":0.7154,"n":267},{"predicted":0.7405,"observed":0.7478,"n":115},{"predicted":0.8335,"observed":0.8947,"n":38}],"draw":[{"predicted":0.0901,"observed":0.1111,"n":9},{"predicted":0.1691,"observed":0.1357,"n":280},{"predicted":0.2567,"observed":0.2715,"n":2306},{"predicted":0.3158,"observed":0.2636,"n":220}],"away":[{"predicted":0.0743,"observed":0.0472,"n":106},{"predicted":0.1553,"observed":0.1331,"n":496},{"predicted":0.2513,"observed":0.2512,"n":800},{"predicted":0.3472,"observed":0.3394,"n":710},{"predicted":0.4463,"observed":0.4271,"n":384},{"predicted":0.5423,"observed":0.5631,"n":222},{"predicted":0.6382,"observed":0.6389,"n":72},{"predicted":0.7426,"observed":0.8571,"n":21},{"predicted":0.828,"observed":0.75,"n":4}]},"brier":{"reliability":0.00148,"resolution":0.05139,"uncertainty":0.64998,"brier":0.5986,"n":2815},"sharpness":{"entropy":1.0102,"mean_max_prob":0.5016,"n":2815},"significance":{"market":{"n":2815,"mean_diff":0.00668,"dm_stat":5.786,"p_value":0.0,"ci_low":0.0044,"ci_high":0.00892},"elo":{"n":2815,"mean_diff":-0.00087,"dm_stat":-0.776,"p_value":0.43786,"ci_low":-0.00307,"ci_high":0.00136}},"by_season":[{"season":"2526","rps":0.2047,"n":2727},{"season":"2627","rps":0.1961,"n":88}],"leagues":[{"league":"Primeira Liga","rps":0.1771,"n":310},{"league":"Bundesliga","rps":0.1957,"n":298},{"league":"Scottish Premiership","rps":0.2012,"n":233},{"league":"La Liga","rps":0.2012,"n":373},{"league":"Ligue 1","rps":0.2015,"n":305},{"league":"Serie A","rps":0.2017,"n":373},{"league":"Premier League","rps":0.2099,"n":371},{"league":"EFL Championship","rps":0.2278,"n":552}]}};
 
   const f2 = n => (n == null || isNaN(n)) ? '–' : n.toFixed(2);
   const f3 = n => (n == null || isNaN(n)) ? '–' : n.toFixed(3);
   const f4 = n => (n == null || isNaN(n)) ? '–' : n.toFixed(4);
   const pct = n => (n == null || isNaN(n)) ? '–' : (n * 100).toFixed(1) + '%';
-  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const cssv = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const RPS_BAND = [0.184, 0.213];
 
-  // ---------- SVG charts ----------
-  function lineChart(seriesList, opts) {
-    // seriesList: [{name, colour, points: [{x, y}]}], x numeric, y numeric
-    const W = opts.width || 860, H = opts.height || 240;
-    const m = { t: 12, r: 12, b: 28, l: 44 };
-    const xs = seriesList.flatMap(s => s.points.map(p => p.x));
-    const ys = seriesList.flatMap(s => s.points.map(p => p.y));
-    if (!ys.length) return '<p class="sub">no data yet</p>';
-    const xmin = Math.min(...xs), xmax = Math.max(...xs, xmin + 1);
-    let ymin = opts.ymin != null ? opts.ymin : Math.min(...ys);
-    let ymax = opts.ymax != null ? opts.ymax : Math.max(...ys);
-    if (ymin === ymax) { ymin -= 0.01; ymax += 0.01; }
+  // charts render static SVG into the string, then get wired for hover after insert
+  const CHARTS = [];
+
+  // ---------- line chart ----------
+  function lineChart(spec) {
+    // spec: { series:[{name,role,points:[{x,y}],dash?}], xticks:[{x,label}], yLabel, band? }
+    const id = 'lc' + CHARTS.length;
+    const W = spec.width || 880, H = spec.height || 260;
+    const m = { t: 14, r: 74, b: 30, l: 52 };
+    const pts = spec.series.flatMap(s => s.points);
+    if (pts.length < 2) return { html: '<p class="cap">not enough data yet</p>', };
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    let xmin = Math.min(...xs), xmax = Math.max(...xs);
+    let ymin = spec.ymin != null ? spec.ymin : Math.min(...ys, spec.band ? spec.band[0] : Infinity);
+    let ymax = spec.ymax != null ? spec.ymax : Math.max(...ys, spec.band ? spec.band[1] : -Infinity);
+    const pad = (ymax - ymin) * 0.12 || 0.01;
+    ymin -= pad; ymax += pad;
+    if (xmin === xmax) xmax = xmin + 1;
     const px = x => m.l + (x - xmin) / (xmax - xmin) * (W - m.l - m.r);
     const py = y => H - m.b - (y - ymin) / (ymax - ymin) * (H - m.t - m.b);
-    const yticks = 4;
+
     let g = '';
-    for (let i = 0; i <= yticks; i++) {
-      const yv = ymin + (ymax - ymin) * i / yticks;
-      const y = py(yv);
-      g += `<line x1="${m.l}" y1="${y}" x2="${W - m.r}" y2="${y}" stroke="var(--line)" />`;
-      g += `<text x="${m.l - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${yv.toFixed(3)}</text>`;
+    if (spec.band) {
+      const y1 = py(spec.band[1]), y0 = py(spec.band[0]);
+      g += `<rect x="${m.l}" y="${y1.toFixed(1)}" width="${(W - m.l - m.r).toFixed(1)}" height="${(y0 - y1).toFixed(1)}" fill="var(--viz-band)" />`;
+      g += `<text x="${m.l + 4}" y="${(y1 - 3).toFixed(1)}" font-size="9" fill="var(--ink-faint)">published range 0.184–0.213</text>`;
     }
-    g += `<text x="${m.l}" y="${H - 8}" font-size="10" fill="var(--ink-faint)">${esc(opts.xlabelLeft || '')}</text>`;
-    g += `<text x="${W - m.r}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${esc(opts.xlabelRight || '')}</text>`;
-    for (const s of seriesList) {
-      if (!s.points.length) continue;
+    // y grid + ticks (solid hairlines)
+    for (let i = 0; i <= 4; i++) {
+      const yv = ymin + (ymax - ymin) * i / 4, y = py(yv);
+      g += `<line x1="${m.l}" y1="${y.toFixed(1)}" x2="${W - m.r}" y2="${y.toFixed(1)}" stroke="var(--viz-grid)" stroke-width="1" />`;
+      g += `<text x="${m.l - 8}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${yv.toFixed(3)}</text>`;
+    }
+    (spec.xticks || []).forEach(t => {
+      g += `<text x="${px(t.x).toFixed(1)}" y="${H - m.b + 16}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">${t.label}</text>`;
+    });
+    if (spec.yLabel)
+      g += `<text x="14" y="${H / 2}" text-anchor="middle" font-size="10" fill="var(--ink-faint)" transform="rotate(-90 14 ${H / 2})">${spec.yLabel}</text>`;
+
+    // series lines + end dot + direct label
+    const labels = [];
+    spec.series.forEach(s => {
+      if (s.points.length < 2) return;
       const d = s.points.map((p, i) => `${i ? 'L' : 'M'}${px(p.x).toFixed(1)},${py(p.y).toFixed(1)}`).join('');
-      g += `<path d="${d}" fill="none" stroke="${s.colour}" stroke-width="2" />`;
-    }
-    return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${g}</svg></div>`;
+      const stroke = `var(${s.role})`;
+      g += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${s.dash ? ' stroke-dasharray="5 4"' : ''} />`;
+      const last = s.points[s.points.length - 1];
+      g += `<circle cx="${px(last.x).toFixed(1)}" cy="${py(last.y).toFixed(1)}" r="3.5" fill="${stroke}" stroke="var(--viz-surface)" stroke-width="2" />`;
+      labels.push({ y: py(last.y), name: s.name, stroke });
+    });
+    // de-collide right-edge labels
+    labels.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labels.length; i++)
+      if (labels[i].y - labels[i - 1].y < 12) labels[i].y = labels[i - 1].y + 12;
+    labels.forEach(l => {
+      g += `<text x="${W - m.r + 8}" y="${(l.y + 3).toFixed(1)}" font-size="10" font-weight="600" fill="${l.stroke}">${l.name}</text>`;
+    });
+    // crosshair (hidden until hover)
+    g += `<line class="xh" x1="0" y1="${m.t}" x2="0" y2="${H - m.b}" stroke="var(--line-strong)" stroke-width="1" opacity="0" />`;
+    g += `<rect class="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent" />`;
+
+    CHARTS.push({
+      id, type: 'line',
+      series: spec.series.map(s => ({ name: s.name, role: s.role, dash: !!s.dash, points: s.points })),
+      geom: { W, H, m, xmin, xmax, ymin, ymax }, fmt: spec.fmt || f4,
+    });
+    return { html: `<div class="chart-wrap" id="${id}"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${spec.aria || 'line chart'}">${g}</svg><div class="viz-tip"></div></div>` };
   }
 
-  function calibChart(seriesList) {
-    // seriesList: [{name, colour, points:[{predicted, observed, n}]}]
-    const W = 420, H = 420, m = 40;
-    const px = v => m + v * (W - 2 * m);
-    const py = v => H - m - v * (H - 2 * m);
-    let g = `<rect x="${m}" y="${m}" width="${W - 2 * m}" height="${H - 2 * m}" fill="none" stroke="var(--line)" />`;
-    g += `<line x1="${px(0)}" y1="${py(0)}" x2="${px(1)}" y2="${py(1)}" stroke="var(--ink-faint)" stroke-dasharray="4 3" />`;
+  // ---------- reliability diagram ----------
+  function calibChart(spec) {
+    // spec: { series:[{name,role,points:[{predicted,observed,n}]}], histogram:[{p,n}] }
+    const id = 'cc' + CHARTS.length;
+    const S = 360, histH = 32, W = S + 8, H = S + histH + 26, m = 40;
+    const px = v => m + v * (S - 2 * m);
+    const py = v => S - m - v * (S - 2 * m);
+    let g = `<rect x="${m}" y="${m}" width="${S - 2 * m}" height="${S - 2 * m}" fill="none" stroke="var(--viz-grid)" />`;
+    g += `<line x1="${px(0)}" y1="${py(0)}" x2="${px(1)}" y2="${py(1)}" stroke="var(--ink-faint)" stroke-dasharray="4 3" stroke-width="1" />`;
+    g += `<text x="${px(0.62)}" y="${py(0.72)}" font-size="9" fill="var(--ink-faint)" transform="rotate(-38 ${px(0.62)} ${py(0.72)})">perfectly calibrated</text>`;
     for (let t = 0; t <= 1.0001; t += 0.25) {
-      g += `<text x="${px(t)}" y="${H - m + 14}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">${t.toFixed(2)}</text>`;
-      g += `<text x="${m - 8}" y="${py(t) + 3}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${t.toFixed(2)}</text>`;
+      g += `<text x="${px(t).toFixed(1)}" y="${S - m + 15}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">${t.toFixed(2)}</text>`;
+      g += `<text x="${m - 8}" y="${(py(t) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${t.toFixed(2)}</text>`;
     }
-    g += `<text x="${W / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">predicted probability</text>`;
-    g += `<text x="12" y="${H / 2}" text-anchor="middle" font-size="10" fill="var(--ink-faint)" transform="rotate(-90 12 ${H / 2})">observed frequency</text>`;
-    for (const s of seriesList) {
+    g += `<text x="${S / 2}" y="${S - 4}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">forecast probability</text>`;
+    g += `<text x="12" y="${S / 2}" text-anchor="middle" font-size="10" fill="var(--ink-faint)" transform="rotate(-90 12 ${S / 2})">observed frequency</text>`;
+
+    spec.series.forEach(s => {
       const pts = s.points.filter(p => p.n > 0);
+      const stroke = `var(${s.role})`;
       if (pts.length > 1) {
         const d = pts.map((p, i) => `${i ? 'L' : 'M'}${px(p.predicted).toFixed(1)},${py(p.observed).toFixed(1)}`).join('');
-        g += `<path d="${d}" fill="none" stroke="${s.colour}" stroke-width="1.5" opacity="0.7" />`;
+        g += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.55" />`;
       }
-      for (const p of pts) {
-        const r = Math.max(2.5, Math.min(9, Math.sqrt(p.n)));
-        g += `<circle cx="${px(p.predicted).toFixed(1)}" cy="${py(p.observed).toFixed(1)}" r="${r.toFixed(1)}" fill="${s.colour}" opacity="0.7" />`;
-      }
-    }
-    return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" style="max-width:420px" role="img">${g}</svg></div>`;
+      pts.forEach(p => {
+        const r = Math.max(3, Math.min(9, Math.sqrt(p.n) * (spec.rscale || 1)));
+        g += `<circle class="cpt" data-t="${p.predicted}" data-o="${p.observed}" data-n="${p.n}" data-s="${s.name}" data-c="${stroke}" cx="${px(p.predicted).toFixed(1)}" cy="${py(p.observed).toFixed(1)}" r="${r.toFixed(1)}" fill="${stroke}" fill-opacity="0.75" stroke="var(--viz-surface)" stroke-width="2" />`;
+      });
+    });
+
+    // forecast-frequency histogram (sharpness) beneath the square
+    const hist = spec.histogram || [];
+    const hy0 = S + 2, hmax = Math.max(1, ...hist.map(b => b.n));
+    g += `<text x="${m}" y="${(hy0 + 8).toFixed(1)}" font-size="9" fill="var(--ink-faint)">forecasts per probability bin (sharpness)</text>`;
+    hist.forEach(b => {
+      const bw = (S - 2 * m) / hist.length;
+      const bh = b.n / hmax * histH;
+      g += `<rect x="${(px(b.p) - bw / 2 + 1).toFixed(1)}" y="${(hy0 + 12 + histH - bh).toFixed(1)}" width="${Math.max(1, bw - 2).toFixed(1)}" height="${bh.toFixed(1)}" fill="var(--ink-faint)" opacity="0.4" />`;
+    });
+
+    CHARTS.push({ id, type: 'calib' });
+    return { html: `<div class="chart-wrap" id="${id}"><svg class="chart" viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="${spec.aria || 'reliability diagram'}">${g}</svg><div class="viz-tip"></div></div>` };
   }
 
   function tile(n, l, sub2) {
     return `<div class="tile"><span class="n num">${n}</span><span class="l">${l}</span>${sub2 ? `<span class="sub2">${sub2}</span>` : ''}</div>`;
   }
-  function legend(items) {
-    return `<div class="legend">${items.map(i => `<span><span class="dot" style="background:${i.c}"></span>${i.t}</span>`).join('')}</div>`;
+  function lineLegend(items) {
+    return `<div class="legend">${items.map(i =>
+      `<span style="color:${i.c}"><span class="lk${i.dash ? ' dash' : ''}"></span><span style="color:var(--ink-soft)">${i.t}</span></span>`).join('')}</div>`;
+  }
+  function dotLegend(items) {
+    return `<div class="legend">${items.map(i =>
+      `<span><span class="dot" style="background:${i.c}"></span><span style="color:var(--ink-soft)">${i.t}</span></span>`).join('')}</div>`;
+  }
+  function miniTable(headers, rows) {
+    return `<details class="tableview"><summary>table view</summary><table><thead><tr>${
+      headers.map(h => `<th class="${h.num ? 'num' : ''}">${h.t}</th>`).join('')}</tr></thead><tbody>${
+      rows.map(r => `<tr>${r.map((c, i) => `<td class="${headers[i].num ? 'num' : ''}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`;
   }
 
   // ================= LIVE =================
@@ -254,24 +349,37 @@
     </div>`;
 
     if (L.cumulative && L.cumulative.length > 1) {
-      const mSeries = { colour: 'var(--model)', points: L.cumulative.map(c => ({ x: c.n, y: c.model })) };
-      const kSeries = { colour: 'var(--market)', points: L.cumulative.filter(c => c.market != null).map(c => ({ x: c.n, y: c.market })) };
-      html += `<div class="panel"><h3>Cumulative RPS as fixtures resolved</h3>
-        ${lineChart([mSeries, kSeries], { xlabelLeft: 'first', xlabelRight: `${L.cumulative.length} scored` })}
-        ${legend([{ c: 'var(--model)', t: 'model' }, { c: 'var(--market)', t: 'market' }])}</div>`;
+      const series = [{ name: 'model', role: '--viz-model', points: L.cumulative.map(c => ({ x: c.n, y: c.model })) }];
+      if (L.cumulative.some(c => c.market != null))
+        series.push({ name: 'market', role: '--viz-ref', dash: true, points: L.cumulative.filter(c => c.market != null).map(c => ({ x: c.n, y: c.market })) });
+      const c = lineChart({ series, yLabel: 'cumulative RPS', band: RPS_BAND,
+        xticks: [{ x: 1, label: 'first' }, { x: L.cumulative.length, label: `#${L.cumulative.length}` }],
+        aria: 'cumulative RPS as fixtures resolved' });
+      html += `<div class="panel"><h3>Cumulative RPS</h3><p class="cap">running average as each fixture finishes, in kick-off order</p>
+        ${c.html}${lineLegend([{ c: 'var(--viz-model)', t: 'model' }, { c: 'var(--viz-ref)', t: 'market', dash: true }])}
+        ${miniTable([{ t: '#' }, { t: 'date' }, { t: 'model', num: true }, { t: 'market', num: true }],
+          L.cumulative.map(x => [x.n, x.date, f4(x.model), x.market != null ? f4(x.market) : '–']))}</div>`;
     }
 
     if (L.calibration && L.calibration.some(b => b.n > 0)) {
-      html += `<div class="panel"><h3>Calibration — predicted vs actual, all outcomes pooled</h3>
-        ${calibChart([{ colour: 'var(--model)', points: L.calibration }])}
-        <p class="sub" style="font-size:0.72rem;color:var(--ink-faint)">dot size ∝ number of forecasts in the bin; on the dashed line = perfectly calibrated</p></div>`;
+      const total = L.calibration.reduce((a, b) => a + b.n, 0);
+      const c = calibChart({
+        series: [{ name: 'model', role: '--viz-model', points: L.calibration }],
+        histogram: L.calibration.map(b => ({ p: b.predicted, n: b.n })),
+        rscale: 6 / Math.sqrt(Math.max(1, total / L.calibration.length)),
+        aria: 'reliability diagram, all outcomes pooled',
+      });
+      html += `<div class="panel"><h3>Calibration</h3><p class="cap">predicted probability vs how often it happened, home/draw/away pooled — on the dashed line = perfect</p>
+        ${c.html}
+        ${miniTable([{ t: 'predicted', num: true }, { t: 'observed', num: true }, { t: 'n', num: true }],
+          L.calibration.filter(b => b.n > 0).map(b => [f3(b.predicted), f3(b.observed), b.n]))}</div>`;
     }
 
     if (L.scoreline) {
       const s = L.scoreline;
-      html += `<div class="panel"><h3>Scoreline scorecard (n=${s.n})</h3>
+      html += `<div class="panel"><h3>Scoreline scorecard <span style="color:var(--ink-faint);font-weight:400">(n=${s.n})</span></h3>
         <table><tbody>
-        <tr><td>Exact scoreline</td><td class="num">${pct(s.exact)}</td><td class="sub">vs ${pct(s.baseline_always_1_1)} always guessing 1-1</td></tr>
+        <tr><td>Exact scoreline</td><td class="num">${pct(s.exact)}</td><td style="color:var(--ink-faint)">vs ${pct(s.baseline_always_1_1)} always guessing 1-1</td></tr>
         <tr><td>Right goal margin</td><td class="num">${pct(s.goal_diff)}</td><td></td></tr>
         <tr><td>Result + within 1 goal each side</td><td class="num">${pct(s.result_and_within_1)}</td><td></td></tr>
         </tbody></table></div>`;
@@ -280,19 +388,19 @@
     if (L.by_league && L.by_league.length) {
       html += `<div class="panel"><h3>By league</h3><div class="scroll-x"><table>
         <thead><tr><th>League</th><th class="num">n</th><th class="num">RPS</th><th class="num">Hit rate</th></tr></thead><tbody>
-        ${L.by_league.map(r => `<tr><td>${esc(r.league)}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td><td class="num">${pct(r.hit_rate)}</td></tr>`).join('')}
+        ${L.by_league.map(r => `<tr><td>${r.league}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td><td class="num">${pct(r.hit_rate)}</td></tr>`).join('')}
         </tbody></table></div></div>`;
     }
 
     if (L.fixtures && L.fixtures.length) {
-      html += `<div class="panel"><h3>What we said · what happened (${L.fixtures.length})</h3><div class="scroll-x"><table>
-        <thead><tr><th>Date</th><th>Fixture</th><th>Model H/D/A</th><th>Market</th><th>Score</th><th class="num">RPS</th><th>Called</th></tr></thead><tbody>
+      html += `<div class="panel"><h3>What we said · what happened <span style="color:var(--ink-faint);font-weight:400">(${L.fixtures.length})</span></h3><div class="scroll-x"><table>
+        <thead><tr><th>Date</th><th>Fixture</th><th class="num">Model H/D/A</th><th class="num">Market</th><th>Score</th><th class="num">RPS</th><th>Called</th></tr></thead><tbody>
         ${L.fixtures.map(x => `<tr>
-          <td class="num">${esc(x.date)}</td>
-          <td>${esc(x.home)} v ${esc(x.away)}</td>
+          <td class="num">${x.date}</td>
+          <td>${x.home} v ${x.away}</td>
           <td class="num">${x.model.map(v => v.toFixed(0)).join(' / ')}</td>
           <td class="num">${x.market ? x.market.map(v => v.toFixed(0)).join(' / ') : '–'}</td>
-          <td class="num">${esc(x.score || '')} <span class="sub">(${esc(x.result)})</span>${x.scoreline_exact ? ' ✓' : ''}</td>
+          <td class="num">${x.score || ''} <span style="color:var(--ink-faint)">(${x.result})</span>${x.scoreline_exact ? ' ✓' : ''}</td>
           <td class="num">${f3(x.model_rps)}</td>
           <td class="${x.model_called ? 'called-y' : 'called-n'}">${x.model_called ? '✓' : '·'}</td>
         </tr>`).join('')}
@@ -304,17 +412,16 @@
   // ================= VALIDATION =================
   (function () {
     const V = DATA.validation;
-    if (!V || !V.headline) { document.getElementById('val-body').innerHTML = '<p class="sub">not available</p>'; return; }
+    if (!V || !V.headline) { document.getElementById('val-body').innerHTML = '<p class="cap">not available</p>'; return; }
     document.getElementById('val-window').textContent = `${V.window.start} → ${V.window.end} · ${V.headline.model_n} fixtures`;
-    const h = V.headline;
-    const sig = V.significance || {};
+    const h = V.headline, sig = V.significance || {};
 
-    const verdict = (s, betterIsModel) => {
+    const verdict = s => {
       if (!s) return '<span class="verdict neutral">n/a</span>';
-      const real = s.p_value < 0.05;
-      if (!real) return `<span class="verdict neutral">level (p=${s.p_value.toFixed(2)})</span>`;
-      const modelBetter = s.mean_diff < 0;
-      return `<span class="verdict ${modelBetter ? 'good' : 'bad'}">${modelBetter ? 'model ahead' : 'model behind'} (p&lt;0.001)</span>`;
+      if (s.p_value >= 0.05) return `<span class="verdict neutral">level (p=${s.p_value.toFixed(2)})</span>`;
+      return s.mean_diff < 0
+        ? `<span class="verdict good">model ahead (p&lt;0.001)</span>`
+        : `<span class="verdict bad">model behind (p&lt;0.001)</span>`;
     };
 
     let html = `<div class="tiles">
@@ -325,62 +432,129 @@
       ${tile(f4(h.calibration_error), 'Calibration err', 'P(home win)')}
     </div>`;
 
-    html += `<div class="panel"><h3>Is the difference real? (paired Diebold-Mariano)</h3>
+    html += `<div class="panel"><h3>Is the difference real?</h3><p class="cap">paired Diebold-Mariano test on the per-match RPS difference — negative ΔRPS = model better, "level" = within noise</p>
       <table><tbody>
       <tr><td>Model vs market</td><td class="num">ΔRPS ${sig.market ? (sig.market.mean_diff > 0 ? '+' : '') + f4(sig.market.mean_diff) : '–'}</td><td>${verdict(sig.market)}</td></tr>
       <tr><td>Model vs Elo</td><td class="num">ΔRPS ${sig.elo ? (sig.elo.mean_diff > 0 ? '+' : '') + f4(sig.elo.mean_diff) : '–'}</td><td>${verdict(sig.elo)}</td></tr>
-      </tbody></table>
-      <p class="sub" style="font-size:0.75rem;color:var(--ink-faint);margin-top:0.5rem">Negative ΔRPS = model better. "Level" = the gap is within noise.</p></div>`;
+      </tbody></table></div>`;
 
     if (V.brier) {
       const b = V.brier;
       html += `<div class="panel"><h3>Brier score decomposition (Murphy)</h3>
         <table><tbody>
-        <tr><td>Multiclass Brier</td><td class="num">${f3(b.brier)}</td><td class="sub">lower better</td></tr>
-        <tr><td>Reliability (calibration)</td><td class="num">${f4(b.reliability)}</td><td class="sub">→ 0 is perfect</td></tr>
-        <tr><td>Resolution (information)</td><td class="num">${f4(b.resolution)}</td><td class="sub">higher better</td></tr>
-        <tr><td>Uncertainty (data)</td><td class="num">${f3(b.uncertainty)}</td><td class="sub">fixed for this sample</td></tr>
-        ${V.sharpness ? `<tr><td>Sharpness (entropy)</td><td class="num">${f3(V.sharpness.entropy)}</td><td class="sub">1.099 = flat 33/33/33</td></tr>` : ''}
+        <tr><td>Multiclass Brier</td><td class="num">${f3(b.brier)}</td><td style="color:var(--ink-faint)">lower better</td></tr>
+        <tr><td>Reliability (calibration)</td><td class="num">${f4(b.reliability)}</td><td style="color:var(--ink-faint)">→ 0 is perfect</td></tr>
+        <tr><td>Resolution (information)</td><td class="num">${f4(b.resolution)}</td><td style="color:var(--ink-faint)">higher better</td></tr>
+        <tr><td>Uncertainty (data)</td><td class="num">${f3(b.uncertainty)}</td><td style="color:var(--ink-faint)">fixed for this sample</td></tr>
+        ${V.sharpness ? `<tr><td>Sharpness (entropy)</td><td class="num">${f3(V.sharpness.entropy)}</td><td style="color:var(--ink-faint)">1.099 = flat 33/33/33</td></tr>` : ''}
         </tbody></table></div>`;
     }
 
     const mo = V.monthly || {};
-    if (mo.model && mo.model.length) {
+    if (mo.model && mo.model.length > 1) {
       const toPts = arr => arr.map((r, i) => ({ x: i, y: r.running }));
-      const series = [
-        { colour: 'var(--model)', points: toPts(mo.model) },
-        { colour: 'var(--market)', points: toPts(mo.devig || []) },
-        { colour: 'var(--elo)', points: toPts(mo.elo || []) },
-      ].filter(s => s.points.length);
-      html += `<div class="panel"><h3>Running RPS by month</h3>
-        ${lineChart(series, { xlabelLeft: mo.model[0].month, xlabelRight: mo.model[mo.model.length - 1].month })}
-        ${legend([{ c: 'var(--model)', t: 'model' }, { c: 'var(--market)', t: 'market' }, { c: 'var(--elo)', t: 'Elo' }])}</div>`;
+      const series = [{ name: 'model', role: '--viz-model', points: toPts(mo.model) }];
+      if ((mo.elo || []).length) series.push({ name: 'Elo', role: '--viz-elo', points: toPts(mo.elo) });
+      if ((mo.devig || []).length) series.push({ name: 'market', role: '--viz-ref', dash: true, points: toPts(mo.devig) });
+      const xt = mo.model.map((r, i) => ({ x: i, label: r.month })).filter((_, i, a) => i === 0 || i === a.length - 1);
+      const c = lineChart({ series, yLabel: 'running RPS', band: RPS_BAND, xticks: xt, aria: 'running RPS by month' });
+      html += `<div class="panel"><h3>Running RPS by month</h3><p class="cap">expanding-window average — how each forecaster's mean has settled</p>
+        ${c.html}${lineLegend([{ c: 'var(--viz-model)', t: 'model' }, { c: 'var(--viz-elo)', t: 'Elo' }, { c: 'var(--viz-ref)', t: 'market', dash: true }])}
+        ${miniTable([{ t: 'month' }, { t: 'model', num: true }, { t: 'Elo', num: true }, { t: 'market', num: true }],
+          mo.model.map((r, i) => [r.month, f4(r.running), f4((mo.elo || [])[i] ? mo.elo[i].running : NaN), f4((mo.devig || [])[i] ? mo.devig[i].running : NaN)]))}</div>`;
     }
 
     if (V.calibration && V.calibration.home) {
-      html += `<div class="panel"><h3>Calibration by outcome</h3>
-        ${calibChart([
-          { colour: 'var(--model)', points: V.calibration.home },
-          { colour: 'var(--market)', points: V.calibration.draw },
-          { colour: 'var(--elo)', points: V.calibration.away },
-        ])}
-        ${legend([{ c: 'var(--model)', t: 'home win' }, { c: 'var(--market)', t: 'draw' }, { c: 'var(--elo)', t: 'away win' }])}</div>`;
+      const allN = ['home', 'draw', 'away'].flatMap(k => (V.calibration[k] || []).map(b => b.n));
+      const c = calibChart({
+        series: [
+          { name: 'home win', role: '--viz-elo', points: V.calibration.home },
+          { name: 'draw', role: '--viz-alt', points: V.calibration.draw },
+          { name: 'away win', role: '--viz-model', points: V.calibration.away },
+        ],
+        histogram: (V.calibration.home || []).map((b, i) => ({
+          p: b.predicted,
+          n: b.n + ((V.calibration.draw || [])[i]?.n || 0) + ((V.calibration.away || [])[i]?.n || 0),
+        })),
+        rscale: 5 / Math.sqrt(Math.max(1, allN.reduce((a, x) => a + x, 0) / Math.max(1, allN.length))),
+        aria: 'reliability diagram by outcome',
+      });
+      const rows = [];
+      ['home', 'draw', 'away'].forEach(k => (V.calibration[k] || []).forEach(b => b.n > 0 && rows.push([k, f3(b.predicted), f3(b.observed), b.n])));
+      html += `<div class="panel"><h3>Calibration by outcome</h3><p class="cap">each outcome's forecast probability vs its observed rate</p>
+        ${c.html}${dotLegend([{ c: 'var(--viz-elo)', t: 'home win' }, { c: 'var(--viz-alt)', t: 'draw' }, { c: 'var(--viz-model)', t: 'away win' }])}
+        ${miniTable([{ t: 'outcome' }, { t: 'predicted', num: true }, { t: 'observed', num: true }, { t: 'n', num: true }], rows)}</div>`;
     }
 
     if (V.by_season && V.by_season.length) {
       html += `<div class="panel"><h3>By season</h3><table>
         <thead><tr><th>Season</th><th class="num">n</th><th class="num">RPS</th></tr></thead><tbody>
-        ${V.by_season.map(r => `<tr><td class="num">${esc(r.season)}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td></tr>`).join('')}
+        ${V.by_season.map(r => `<tr><td class="num">${r.season}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td></tr>`).join('')}
         </tbody></table></div>`;
     }
 
     if (V.leagues && V.leagues.length) {
       html += `<div class="panel"><h3>By league</h3><div class="scroll-x"><table>
         <thead><tr><th>League</th><th class="num">n</th><th class="num">RPS</th></tr></thead><tbody>
-        ${V.leagues.map(r => `<tr><td>${esc(r.league)}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td></tr>`).join('')}
+        ${V.leagues.map(r => `<tr><td>${r.league}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td></tr>`).join('')}
         </tbody></table></div></div>`;
     }
-
     document.getElementById('val-body').innerHTML = html;
   })();
+
+  // ================= hover wiring (after both sections render) =================
+  for (const ch of CHARTS) {
+    const wrap = document.getElementById(ch.id);
+    if (!wrap) continue;
+    const svg = wrap.querySelector('svg'), tip = wrap.querySelector('.viz-tip');
+    const vb = svg.viewBox.baseVal;
+    const toSvg = e => {
+      const r = svg.getBoundingClientRect();
+      return { x: (e.clientX - r.left) / r.width * vb.width, y: (e.clientY - r.top) / r.height * vb.height, r };
+    };
+    if (ch.type === 'line') {
+      const { W, H, m, xmin, xmax, ymin, ymax } = ch.geom;
+      const px = x => m.l + (x - xmin) / (xmax - xmin) * (W - m.l - m.r);
+      const py = y => H - m.b - (y - ymin) / (ymax - ymin) * (H - m.t - m.b);
+      const xh = svg.querySelector('.xh');
+      const allX = [...new Set(ch.series.flatMap(s => s.points.map(p => p.x)))].sort((a, b) => a - b);
+      const move = e => {
+        const s = toSvg(e);
+        const xv = xmin + (s.x - m.l) / (W - m.l - m.r) * (xmax - xmin);
+        let nx = allX[0];
+        for (const c of allX) if (Math.abs(c - xv) < Math.abs(nx - xv)) nx = c;
+        xh.setAttribute('x1', px(nx)); xh.setAttribute('x2', px(nx)); xh.setAttribute('opacity', '1');
+        const rows = ch.series.map(se => {
+          const pt = se.points.find(p => p.x === nx);
+          return pt ? `<div class="row"><span class="k" style="color:var(${se.role})"><i class="${se.dash ? 'dash' : ''}"></i>${se.name}</span><span class="v">${ch.fmt(pt.y)}</span></div>` : '';
+        }).join('');
+        tip.innerHTML = `<span class="tx">${ch.series[0].points.find(p => p.x === nx) ? '#' + nx : ''}</span>${rows}`;
+        tip.style.opacity = '1';
+        const leftPx = px(nx) / vb.width * s.r.width;
+        tip.style.left = Math.min(s.r.width - tip.offsetWidth - 6, Math.max(4, leftPx + 10)) + 'px';
+        tip.style.top = '8px';
+      };
+      const hit = svg.querySelector('.hit');
+      hit.addEventListener('pointermove', move);
+      hit.addEventListener('pointerleave', () => { tip.style.opacity = '0'; xh.setAttribute('opacity', '0'); });
+    } else {
+      wrap.querySelectorAll('.cpt').forEach(c => {
+        const show = e => {
+          const s = toSvg(e);
+          c.setAttribute('fill-opacity', '1');
+          tip.innerHTML = `<span class="tx">${c.dataset.s}</span>
+            <div class="row"><span class="k">predicted</span><span class="v">${(+c.dataset.t).toFixed(3)}</span></div>
+            <div class="row"><span class="k">observed</span><span class="v">${(+c.dataset.o).toFixed(3)}</span></div>
+            <div class="row"><span class="k">forecasts</span><span class="v">${c.dataset.n}</span></div>`;
+          tip.style.opacity = '1';
+          const cx = +c.getAttribute('cx') / vb.width * s.r.width;
+          tip.style.left = Math.min(s.r.width - tip.offsetWidth - 6, Math.max(4, cx + 12)) + 'px';
+          tip.style.top = Math.max(4, (+c.getAttribute('cy') / vb.height * s.r.height) - 10) + 'px';
+        };
+        c.addEventListener('pointerenter', show);
+        c.addEventListener('pointermove', show);
+        c.addEventListener('pointerleave', () => { c.setAttribute('fill-opacity', '0.75'); tip.style.opacity = '0'; });
+      });
+    }
+  }
 </script>
