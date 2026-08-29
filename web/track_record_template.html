@@ -1,135 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="The football model's track record: live predictions scored against results as they come in, plus a three-season walk-forward validation backtest.">
 <title>The Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>__BASE_CSS__</style>
 <style>
-  :root {
-    --paper: #eef0e8; --paper-raised: #f7f8f2; --ink: #14181d; --ink-soft: #454e46;
-    --ink-faint: #7a8279; --line: rgba(20,24,29,0.13); --line-strong: rgba(20,24,29,0.22);
-    --amber: #b9791c; --amber-ink: #6e4610;
-    /* chart series — validated colourblind-safe (dataviz validator, light surface #f7f8f2) */
-    --viz-model: #2a78d6; --viz-elo: #1baf7a; --viz-alt: #eb6834;
-    --viz-ref: #7a8279;            /* market = neutral reference, not a rival */
-    --viz-band: rgba(42,120,214,0.09);
-    --viz-grid: rgba(20,24,29,0.10); --viz-surface: #f7f8f2;
-    --good: #0ca30c; --bad: #d03b3b; --neutral: #7a8279;
-    --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
-      --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
-      --amber: #e3ac4c; --amber-ink: #f0c274;
-      --viz-model: #3987e5; --viz-elo: #199e70; --viz-alt: #d95926;
-      --viz-ref: #8b938a; --viz-band: rgba(57,135,229,0.14);
-      --viz-grid: rgba(233,236,228,0.10); --viz-surface: #171c23;
-      --good: #3fb93f; --bad: #e06666; --neutral: #8b938a;
-      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
-    }
-  }
-  :root[data-theme="dark"] {
-    --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
-    --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
-    --amber: #e3ac4c; --amber-ink: #f0c274;
-    --viz-model: #3987e5; --viz-elo: #199e70; --viz-alt: #d95926;
-    --viz-ref: #8b938a; --viz-band: rgba(57,135,229,0.14);
-    --viz-grid: rgba(233,236,228,0.10); --viz-surface: #171c23;
-    --good: #3fb93f; --bad: #e06666; --neutral: #8b938a;
-    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
-  }
-
-  * { box-sizing: border-box; }
-  html { color-scheme: light dark; }
-  body { margin: 0; background: var(--paper); color: var(--ink);
-    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
-  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-  a { color: var(--amber-ink); }
-
-  header { position: sticky; top: 0; z-index: 10; background: var(--paper);
-    border-bottom: 1px solid var(--line); padding: 0.9rem 1.5rem 0; }
-  .header-top { display: flex; align-items: baseline; justify-content: space-between;
-    gap: 1rem; flex-wrap: wrap; max-width: 960px; margin: 0 auto; }
-  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--amber-ink); margin: 0 0 0.15rem; }
-  h1 { font-family: "Big Shoulders Display", sans-serif; font-weight: 800;
-    font-size: clamp(2.1rem, 5vw, 3.1rem); text-transform: uppercase; margin: 0; line-height: 0.92; }
-  .generated { font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--ink-faint); }
-  nav.site { max-width: 960px; margin: 0.75rem auto 0; display: flex; gap: 0.4rem;
-    overflow-x: auto; padding-bottom: 0.7rem; }
-  nav.site a { flex: none; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem;
-    text-decoration: none; color: var(--ink-soft); border: 1px solid var(--line-strong);
-    border-radius: 100px; padding: 0.3rem 0.8rem; white-space: nowrap; }
-  nav.site a[aria-current="page"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
-  nav.site a:hover { border-color: var(--amber); }
-
-  main { max-width: 960px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
-  section { margin-bottom: 3rem; }
+  section { margin-bottom: var(--sp-7); }
   .sec-head { display: flex; align-items: baseline; gap: 0.6rem; border-bottom: 2px solid var(--ink);
-    padding-bottom: 0.35rem; margin-bottom: 1rem; }
-  .sec-head h2 { font-family: "Big Shoulders Display", sans-serif; font-weight: 700; font-size: 1.6rem;
-    text-transform: uppercase; margin: 0; }
-  .sec-head .sub { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: var(--ink-faint); }
-  .lede { font-size: 0.95rem; color: var(--ink-soft); max-width: 66ch; margin: 0 0 1.2rem; }
+    padding-bottom: 0.35rem; margin-bottom: var(--sp-4); flex-wrap: wrap; }
+  .sec-head h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; text-transform: uppercase; }
+  .sec-head .sub { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-faint); }
+  .lede { font-size: 0.95rem; color: var(--ink-soft); max-width: var(--measure); margin-bottom: 1.2rem; }
   .lede strong { color: var(--ink); font-weight: 600; }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px;
-    background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
-    margin-bottom: 1.5rem; }
-  .tile { background: var(--paper-raised); padding: 0.85rem 1rem; }
-  .tile .n { font-family: "Big Shoulders Display", sans-serif; font-weight: 700; font-size: 1.7rem;
-    line-height: 1; display: block; }
-  .tile .l { font-size: 0.7rem; color: var(--ink-faint); text-transform: uppercase;
-    letter-spacing: 0.05em; margin-top: 0.3rem; display: block; }
-  .tile .sub2 { font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.15rem; display: block; }
-
-  .panel { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px;
-    padding: 1rem 1.15rem; box-shadow: var(--shadow); margin-bottom: 1.25rem; }
-  .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--ink-faint); margin: 0 0 0.15rem; }
-  .panel .cap { font-size: 0.78rem; color: var(--ink-faint); margin: 0 0 0.75rem; }
-  .chart-wrap { position: relative; overflow-x: auto; }
-  svg.chart { display: block; max-width: 100%; height: auto; touch-action: none; }
-  .legend { display: flex; gap: 1rem; font-size: 0.72rem; color: var(--ink-soft); margin-top: 0.5rem; flex-wrap: wrap; }
-  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
-  .legend .lk { width: 0.9rem; height: 0; border-top: 2px solid currentColor; display: inline-block; }
-  .legend .lk.dash { border-top-style: dashed; }
-  .legend .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; }
-
-  .viz-tip { position: absolute; pointer-events: none; z-index: 5; background: var(--paper);
-    border: 1px solid var(--line-strong); border-radius: 7px; padding: 0.45rem 0.6rem;
-    font-size: 0.74rem; box-shadow: var(--shadow); opacity: 0; transition: opacity 0.1s;
-    min-width: 8rem; }
-  .viz-tip .tx { font-family: "IBM Plex Mono", monospace; color: var(--ink-faint); font-size: 0.68rem;
-    display: block; margin-bottom: 0.25rem; }
-  .viz-tip .row { display: flex; align-items: center; gap: 0.4rem; justify-content: space-between; }
-  .viz-tip .row .k { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--ink-soft); }
-  .viz-tip .row .k i { width: 0.85rem; height: 0; border-top: 2px solid currentColor; display: inline-block; }
-  .viz-tip .row .v { font-family: "IBM Plex Mono", monospace; font-weight: 600; color: var(--ink); }
-
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); }
-  th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); font-weight: 600; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .verdict { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; padding: 0.1rem 0.45rem; border-radius: 5px; }
-  .verdict.good { color: var(--good); background: rgba(12,163,12,0.13); }
-  .verdict.bad { color: var(--bad); background: rgba(208,59,59,0.13); }
+  .verdict { font-family: var(--font-mono); font-size: 0.78rem; padding: 0.1rem 0.45rem; border-radius: var(--radius-sm); }
+  .verdict.good { color: var(--good); background: rgba(12, 163, 12, 0.13); }
+  .verdict.bad { color: var(--bad); background: rgba(208, 59, 59, 0.13); }
   .verdict.neutral { color: var(--neutral); background: var(--line); }
   .called-y { color: var(--good); } .called-n { color: var(--ink-faint); }
 
-  details.tableview { margin-top: 0.6rem; }
-  details.tableview summary { font-size: 0.72rem; color: var(--ink-faint); cursor: pointer; font-family: "IBM Plex Mono", monospace; }
-  details.tableview table { margin-top: 0.5rem; }
-
   .note { font-size: 0.85rem; color: var(--ink-soft); background: var(--line); border-radius: 8px;
-    padding: 0.75rem 1rem; margin-bottom: 1.25rem; }
-
-  footer { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; color: var(--ink-faint);
-    font-size: 0.82rem; border-top: 1px solid var(--line); }
-  footer p { max-width: 68ch; }
-
-  @media (max-width: 560px) { .scroll-x { overflow-x: auto; } }
-  @media (prefers-reduced-motion: reduce) { .viz-tip { transition: none; } }
+    padding: var(--sp-3) var(--sp-4); margin-bottom: 1.25rem; }
 </style>
-
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
 <header>
   <div class="header-top">
     <div>
@@ -138,14 +39,14 @@
     </div>
     <div class="generated">__GENERATED__</div>
   </div>
-  <nav class="site">
+  <nav class="site" aria-label="Pages">
     <a href="./index.html">Weekend Coupon</a>
     <a href="./why.html">The Working</a>
     <a href="./track-record.html" aria-current="page">The Ledger</a>
   </nav>
 </header>
 
-<main>
+<main id="main">
   <p class="lede">
     Two kinds of evidence, kept apart. The <strong>live record</strong> is every
     prediction the site actually published, scored against the result once it's
@@ -558,3 +459,5 @@
     }
   }
 </script>
+</body>
+</html>

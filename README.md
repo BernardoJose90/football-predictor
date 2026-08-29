@@ -373,8 +373,10 @@ scripts/
   render_coupon.py       predict_upcoming -> docs/index.html (GitHub Pages), always logs
   render_why.py           model-vs-market gap explainer -> docs/why.html + artefacts/why.json
   track_record.py         live log + walk-forward validation -> docs/track-record.html + JSON
-web/coupon_template.html, why_template.html, track_record_template.html   static HTML/JS
-    templates the three render_* scripts fill in (shared design + cross-page nav)
+  render_common.py        inlines web/base.css + the data payload + timestamp into a template
+web/base.css             shared tokens/layout/components for all three pages (one source of truth)
+web/coupon_template.html, why_template.html, track_record_template.html   per-page HTML/JS;
+    __BASE_CSS__ is replaced with base.css at render time so each page still ships as one file
 .github/workflows/weekly-predictions.yml   Thu/Sat cron: renders + commits all three pages
 tests/                 tests incl. leakage-guard tests for ratings, referee, rest, travel
 data/raw/, data/processed/, artefacts/   artefacts/prediction_log.csv is the one artefact tracked in git

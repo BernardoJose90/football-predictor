@@ -16,8 +16,6 @@ scripts.track_record scores for the public track-record page (#5).
 from __future__ import annotations
 
 import argparse
-import json
-import re
 import sys
 
 import pandas as pd
@@ -59,21 +57,11 @@ def build_payload(csv_path) -> list[dict]:
 
 
 def render(payload: list[dict]) -> str:
-    html = TEMPLATE.read_text(encoding="utf-8")
-    data_json = json.dumps(payload, separators=(",", ":"))
-    rendered, n = re.subn(
-        r"const DATA = __DATA_JSON__;",
-        lambda _m: f"const DATA = {data_json};",
-        html, count=1,
+    from scripts import render_common
+    return render_common.finalize(
+        TEMPLATE.read_text(encoding="utf-8"), payload,
+        render_common.utc_now_str(), where=str(TEMPLATE),
     )
-    if n != 1:
-        raise RuntimeError(f"{TEMPLATE} - expected exactly one __DATA_JSON__ placeholder, found {n}")
-    generated = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC")
-    rendered = rendered.replace(
-        "</footer>",
-        f'  <p style="margin-top:0.75rem">Auto-generated {generated}.</p>\n</footer>',
-    )
-    return rendered
 
 
 def main(argv=None) -> int:

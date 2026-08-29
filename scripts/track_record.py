@@ -193,14 +193,12 @@ HTML_OUT = config.ROOT / "docs" / "track-record.html"
 def render(payload: dict, template=None) -> str:
     """Fill web/track_record_template.html with the payload from build()."""
     from pathlib import Path
+    from scripts import render_common
     tmpl = Path(template) if template else TEMPLATE
-    html = tmpl.read_text(encoding="utf-8")
-    if "const DATA = __DATA_JSON__;" not in html:
-        raise RuntimeError(f"{tmpl}: missing 'const DATA = __DATA_JSON__;' placeholder")
-    return (html
-            .replace("const DATA = __DATA_JSON__;",
-                     f"const DATA = {json.dumps(payload, separators=(',', ':'))};")
-            .replace("__GENERATED__", payload.get("generated", "")))
+    return render_common.finalize(
+        tmpl.read_text(encoding="utf-8"), payload,
+        payload.get("generated") or render_common.utc_now_str(), where=str(tmpl),
+    )
 
 
 def main(argv=None) -> int:

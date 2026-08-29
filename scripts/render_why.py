@@ -102,15 +102,12 @@ def build(records: list[dict], min_gap: float) -> list[dict]:
 
 
 def render(payload: list[dict], template: Path | None = None) -> str:
-    import pandas as pd
-    html = (template or TEMPLATE).read_text(encoding="utf-8")
-    if "const DATA = __DATA_JSON__;" not in html:
-        raise RuntimeError(f"{template or TEMPLATE}: missing 'const DATA = __DATA_JSON__;' placeholder")
-    generated = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC")
-    return (html
-            .replace("const DATA = __DATA_JSON__;",
-                     f"const DATA = {json.dumps(payload, separators=(',', ':'))};")
-            .replace("__GENERATED__", generated))
+    from scripts import render_common
+    tmpl = template or TEMPLATE
+    return render_common.finalize(
+        tmpl.read_text(encoding="utf-8"), payload,
+        render_common.utc_now_str(), where=str(tmpl),
+    )
 
 
 def main(argv=None) -> int:
