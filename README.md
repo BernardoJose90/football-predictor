@@ -23,10 +23,13 @@ football-data.co.uk's free fixtures feed, alongside that same fixture's
 market price - useful for eyeballing the model against reality without
 waiting for a backtest window to close.
 
-Not built: Milestone 5/6 (containerised scheduling, FastAPI service) and the
-Postgres schema from section 8 - this repo runs off Parquet/CSV files under
-`data/`, which is enough to prove the model out. Wire in the DB and API once
-the numbers earn it, per the doc's own sequencing.
+Milestone 5's scheduling is covered by a GitHub Actions cron
+(`.github/workflows/weekly-predictions.yml`) rather than a container.
+Milestone 6's read-only HTTP API is built (`api/`, FastAPI) - see the API
+section below. Not built: the Postgres schema from section 8 - this repo runs
+off Parquet/CSV files under `data/`, which is enough to prove the model out
+(and `git` is a better audit trail for the prediction log than a self-hosted
+DB); wire in a DB once the query patterns actually need one.
 
 ## Quickstart
 
@@ -335,8 +338,8 @@ want the literal number the doc names.
 
 ## Repository layout
 
-Matches `football-predictor/` in the design doc section 7, minus `api/` and
-`infra/` (not built yet):
+Matches `football-predictor/` in the design doc section 7, minus `infra/`
+(scheduling is a GitHub Actions cron, not a container):
 
 ```
 config.py            league codes, seasons, model defaults incl. section 10.1 feature flags
@@ -378,6 +381,10 @@ web/base.css             shared tokens/layout/components for all three pages (on
 web/coupon_template.html, why_template.html, track_record_template.html   per-page HTML/JS;
     __BASE_CSS__ is replaced with base.css at render time so each page still ships as one file
 .github/workflows/weekly-predictions.yml   Thu/Sat cron: renders + commits all three pages
+api/
+  app.py               FastAPI app - read-only /v1 endpoints over the JSON artefacts
+  data.py              mtime-cached artefact loader (no model calls per request)
+  requirements.txt     fastapi + uvicorn + httpx (API only, separate from the core)
 tests/                 tests incl. leakage-guard tests for ratings, referee, rest, travel
 data/raw/, data/processed/, artefacts/   artefacts/prediction_log.csv is the one artefact tracked in git
 ```
@@ -398,10 +405,28 @@ data/raw/, data/processed/, artefacts/   artefacts/prediction_log.csv is the one
   sharpest book, falling back to market-average and Bet365 closing, then to
   pre-close prices as a last resort (`normalise/schema.py::_pick_closing_odds`).
 
+## API (Milestone 6)
+
+`api/` is a small read-only FastAPI service over the model's output. It serves
+the same JSON artefacts the pages are built from - it never runs the model per
+request, so it's stateless and cache-friendly.
+
+```bash
+pip install -r requirements.txt -r api/requirements.txt
+python -m api --reload      # http://127.0.0.1:8000  (docs at /docs)
+```
+
+`GET /v1/predictions?league=E0`, `GET /v1/predictions/{match_id}` (full
+breakdown), `GET /v1/disagreements?min_gap=5`, `GET /v1/track-record`,
+`GET /v1/leagues`, `GET /health`. Every GET is `Cache-Control`'d; a
+not-yet-generated artefact returns 503 with a hint. Full endpoint list and a
+Fly.io/Render deployment sketch in `api/README.md`. It is **not deployed** -
+run it locally, or (if you don't need the query params) skip the server
+entirely and serve the committed JSON artefacts off GitHub Pages.
+
 ## Not built (by choice, this pass)
 
 - Postgres schema (section 8) - flat files were enough to prove the model.
-- `api/` FastAPI service, containerisation, scheduling (Milestones 5-6).
 - Historical (as-of-season) squad values - only a current-day Transfermarkt
   snapshot exists, which is why squad value is live-only, not backtested.
 - xG for Championship/Scottish Premiership/Primeira Liga - Understat simply
