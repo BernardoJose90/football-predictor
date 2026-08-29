@@ -1,0 +1,44 @@
+name: Weekly predictions
+
+# Thursday morning (after midweek team news) and Saturday morning (matchday)
+# UTC. Also runnable on demand from the Actions tab for a manual refresh.
+on:
+  schedule:
+    - cron: "0 8 * * 4"
+    - cron: "0 7 * * 6"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-predictions
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Render this weekend's predictions
+        run: python -m scripts.render_coupon
+
+      - name: Commit updated page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "Auto-update weekend predictions [skip ci]"
+          git push
