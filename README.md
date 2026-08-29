@@ -295,6 +295,16 @@ single GitHub Pages site with a shared nav - `/`, `/why.html`,
 `/track-record.html`. Running any of the three scripts locally regenerates
 its page the same way CI does.
 
+**Unattended operation.** Meant to run a whole season with almost no
+touching: dependencies are pinned exactly (`requirements.txt`) so an upstream
+release can't break a mid-season run, and `scripts.predict_upcoming` has a
+sanity gate - a fixture whose probabilities don't sum to 1, or whose expected
+goals / ratings are physically absurd, is dropped from the card rather than
+published and logged; if more than ~15% of the card fails at once the run
+aborts (something upstream is wrong) rather than committing a broken page.
+Still needs an occasional glance at the Actions tab and a `config.SEASONS`
+bump each August.
+
 ## Evaluation
 
 `python -m scripts.run_backtest --eval-start 2025-08-01 --stat sot` (walk-forward

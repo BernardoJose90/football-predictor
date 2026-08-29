@@ -71,3 +71,44 @@ def test_render_fails_loudly_if_template_placeholder_missing(tmp_path, monkeypat
 def test_template_file_actually_exists_and_has_placeholder():
     assert TEMPLATE.exists()
     assert "__DATA_JSON__" in TEMPLATE.read_text(encoding="utf-8")
+
+
+# ---- sanity gate ---------------------------------------------------------
+
+def _rated(**over):
+    base = {
+        "unrated": False, "match_id": "m1", "home_team": "A", "away_team": "B",
+        "p_home": 0.5, "p_draw": 0.3, "p_away": 0.2,
+        "home_pred": 1.6, "away_pred": 1.1, "base_home_pred": 1.5, "base_away_pred": 1.1,
+        "home_attack": 1.2, "home_defence": 0.9, "away_attack": 1.0, "away_defence": 1.1,
+        "lam_mult": 1.0, "mu_mult": 1.0,
+    }
+    base.update(over)
+    return base
+
+
+def test_sanity_check_passes_a_normal_fixture():
+    from scripts.predict_upcoming import _sanity_check
+    msgs, bad = _sanity_check([_rated(), {"unrated": True}])
+    assert msgs == [] and bad == set()
+
+
+def test_sanity_check_flags_probabilities_that_dont_sum_to_one():
+    from scripts.predict_upcoming import _sanity_check
+    msgs, bad = _sanity_check([_rated(match_id="x", p_home=0.9, p_draw=0.9, p_away=0.9)])
+    assert bad == {"x"} and any("sum to" in m for m in msgs)
+
+
+def test_sanity_check_flags_absurd_expected_goals_and_ratings():
+    from scripts.predict_upcoming import _sanity_check
+    _, bad = _sanity_check([_rated(match_id="g", home_pred=42.0)])
+    assert bad == {"g"}
+    _, bad2 = _sanity_check([_rated(match_id="r", away_defence=0.0)])
+    assert bad2 == {"r"}
+
+
+def test_sanity_check_only_warns_on_aggressive_multipliers():
+    from scripts.predict_upcoming import _sanity_check
+    msgs, bad = _sanity_check([_rated(mu_mult=0.3)])
+    assert bad == set()  # not dropped
+    assert any("multipliers" in m and m.startswith("warn") for m in msgs)

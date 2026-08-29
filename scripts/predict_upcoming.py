@@ -87,6 +87,50 @@ def _rebuild_dataset() -> pd.DataFrame:
     return matches
 
 
+def _sanity_check(results: list[dict]) -> tuple[list[str], set[str]]:
+    """Catch a broken prediction before it's published and logged.
+
+    Returns (messages, bad_match_ids). A fixture whose probabilities don't sum
+    to 1, are out of [0,1], or whose expected goals / ratings are physically
+    absurd has a real bug behind it - it gets dropped from the card rather
+    than committed to the permanent record. Aggressive-but-valid adjustment
+    multipliers only produce a warning (that's the model working, not a bug).
+    The caller aborts the whole run if too many fixtures fail at once.
+    """
+    msgs: list[str] = []
+    bad: set[str] = set()
+    for r in results:
+        if r.get("unrated"):
+            continue
+        tag = f"{r.get('home_team')} v {r.get('away_team')}"
+        mid = r.get("match_id")
+        ps = [r.get("p_home"), r.get("p_draw"), r.get("p_away")]
+        if any(p is None or not (0.0 <= p <= 1.0) for p in ps):
+            msgs.append(f"HARD  {tag}: P(H/D/A) out of [0,1] or missing: {ps}")
+            if mid:
+                bad.add(mid)
+        elif abs(sum(ps) - 1.0) > 0.01:
+            msgs.append(f"HARD  {tag}: P(H/D/A) sum to {sum(ps):.3f}, not 1")
+            if mid:
+                bad.add(mid)
+        for k in ("home_pred", "away_pred", "base_home_pred", "base_away_pred"):
+            v = r.get(k)
+            if v is not None and not (0.0 < v < 15.0):
+                msgs.append(f"HARD  {tag}: {k}={v} outside (0, 15) expected goals")
+                if mid:
+                    bad.add(mid)
+        for k in ("home_attack", "home_defence", "away_attack", "away_defence"):
+            v = r.get(k)
+            if v is not None and not (0.02 < v < 12.0):
+                msgs.append(f"HARD  {tag}: {k}={v} outside (0.02, 12)")
+                if mid:
+                    bad.add(mid)
+        lm, mm = r.get("lam_mult", 1.0), r.get("mu_mult", 1.0)
+        if not (0.4 <= lm <= 2.5) or not (0.4 <= mm <= 2.5):
+            msgs.append(f"warn  {tag}: adjustment multipliers {lm:.2f}/{mm:.2f} outside [0.4, 2.5]")
+    return msgs, bad
+
+
 def _load_matches() -> pd.DataFrame:
     pq = config.DATA_PROCESSED / "matches.parquet"
     csv = config.DATA_PROCESSED / "matches.csv"
@@ -407,6 +451,22 @@ def main(argv=None) -> int:
                 rec.update({f"market_{k}": v for k, v in mkt.items()})
             results.append(rec)
         print()
+
+    # Sanity gate: never publish or log a physically broken prediction.
+    rated_n = sum(1 for r in results if not r.get("unrated"))
+    msgs, bad_ids = _sanity_check(results)
+    if msgs:
+        print("\nsanity check:", file=sys.stderr)
+        for m in msgs:
+            print(f"  {m}", file=sys.stderr)
+    if bad_ids:
+        limit = max(3, int(0.15 * rated_n))
+        if len(bad_ids) > limit:
+            raise SystemExit(f"sanity check: {len(bad_ids)}/{rated_n} rated fixtures are "
+                             f"physically broken (limit {limit}) - not publishing this card, "
+                             f"something is wrong upstream")
+        results = [r for r in results if r.get("match_id") not in bad_ids]
+        print(f"  -> dropped {len(bad_ids)} broken fixture(s) from the card", file=sys.stderr)
 
     out = pd.DataFrame(results)
     out_path = args.out or (config.ARTEFACTS / "upcoming_predictions.csv")

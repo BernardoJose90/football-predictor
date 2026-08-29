@@ -1,16 +1,19 @@
-pandas>=3.0
-numpy>=2.5
-scipy>=1.18
-matplotlib>=3.11
-requests>=2.34
-python-dotenv>=1.2
-PyYAML>=6.0
-pyarrow>=25.0
-pytest>=9.1
+# Pinned exactly so an unattended weekly CI run can't be broken by an
+# upstream release mid-season. To move forward: `pip install -U <pkg>` in the
+# venv, re-run the tests, then `pip freeze | grep -i <pkg>` back into here.
+pandas==3.0.5
+numpy==2.5.2
+scipy==1.18.1
+matplotlib==3.11.1
+requests==2.34.2
+python-dotenv==1.2.3
+PyYAML==6.0.3
+pyarrow==25.0.1
+pytest==9.1.1
 
 # for --stat xg / python -m ingest.understat (5/8 leagues, see README Milestone 4)
-soccerdata
+soccerdata==1.9.1
 
 # for python -m ingest.squad_value (Transfermarkt scrape) - lxml is what
 # pandas.read_html actually needs to parse the fetched pages
-lxml
+lxml==6.1.2
