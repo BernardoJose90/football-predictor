@@ -1,0 +1,257 @@
+<title>The Working</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #eef0e8;
+    --paper-raised: #f7f8f2;
+    --ink: #14181d;
+    --ink-soft: #454e46;
+    --ink-faint: #7a8279;
+    --line: rgba(20,24,29,0.13);
+    --line-strong: rgba(20,24,29,0.22);
+    --amber: #b9791c;
+    --amber-ink: #6e4610;
+    --home: #2f7a52;
+    --draw: #93762f;
+    --away: #6a3f7a;
+    --ratings: #2f6a7a;
+    --ratings-bg: rgba(47,106,122,0.13);
+    --adj: #a8461f;
+    --adj-bg: rgba(168,70,31,0.13);
+    --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
+      --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
+      --amber: #e3ac4c; --amber-ink: #f0c274; --home: #4fa878; --draw: #c7a565; --away: #a875b8;
+      --ratings: #5aa7bd; --ratings-bg: rgba(90,167,189,0.16);
+      --adj: #e07a4c; --adj-bg: rgba(224,122,76,0.16);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
+    --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
+    --amber: #e3ac4c; --amber-ink: #f0c274; --home: #4fa878; --draw: #c7a565; --away: #a875b8;
+    --ratings: #5aa7bd; --ratings-bg: rgba(90,167,189,0.16);
+    --adj: #e07a4c; --adj-bg: rgba(224,122,76,0.16);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  a { color: var(--amber-ink); }
+
+  header { position: sticky; top: 0; z-index: 10; background: var(--paper);
+    border-bottom: 1px solid var(--line); padding: 0.9rem 1.5rem 0; }
+  .header-top { display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; max-width: 920px; margin: 0 auto; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber-ink); margin: 0 0 0.15rem; }
+  h1 { font-family: "Big Shoulders Display", sans-serif; font-weight: 800;
+    font-size: clamp(2.1rem, 5vw, 3.1rem); letter-spacing: 0.005em; text-transform: uppercase;
+    margin: 0; line-height: 0.92; }
+  .generated { font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--ink-faint); }
+  nav.site { max-width: 920px; margin: 0.75rem auto 0; display: flex; gap: 0.4rem;
+    overflow-x: auto; padding-bottom: 0.7rem; }
+  nav.site a { flex: none; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem;
+    text-decoration: none; color: var(--ink-soft); border: 1px solid var(--line-strong);
+    border-radius: 100px; padding: 0.3rem 0.8rem; white-space: nowrap; }
+  nav.site a[aria-current="page"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+  nav.site a:hover { border-color: var(--amber); }
+
+  main { max-width: 920px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+  .intro { font-size: 0.98rem; color: var(--ink-soft); max-width: 64ch; margin: 0 0 1.5rem; }
+  .intro strong { color: var(--ink); font-weight: 600; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    margin-bottom: 2.25rem; }
+  .stat { background: var(--paper-raised); padding: 0.85rem 1rem; }
+  .stat .n { font-family: "Big Shoulders Display", sans-serif; font-weight: 700; font-size: 1.85rem;
+    line-height: 1; display: block; }
+  .stat .l { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: 0.06em; margin-top: 0.3rem; display: block; }
+
+  .fixtures { display: flex; flex-direction: column; gap: 1rem; }
+  .fixture { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.15rem; box-shadow: var(--shadow); }
+  .fx-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .teams { font-weight: 600; font-size: 1.05rem; }
+  .teams .vs { color: var(--ink-faint); font-weight: 400; margin: 0 0.4rem; font-size: 0.85em; }
+  .fx-meta { font-size: 0.78rem; color: var(--ink-faint); }
+  .headline { font-family: "Big Shoulders Display", sans-serif; font-weight: 700;
+    font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 0.6rem;
+    color: var(--adj); }
+
+  .bars { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.4rem 0 0.7rem; }
+  .bar-row { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.55rem; align-items: center; }
+  .bar-label { font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
+  .bar { display: flex; height: 1.15rem; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .seg { display: flex; align-items: center; justify-content: center; font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem; color: #fff; white-space: nowrap; overflow: hidden; }
+  .seg.home { background: var(--home); } .seg.draw { background: var(--draw); } .seg.away { background: var(--away); }
+
+  .attribution { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+    padding: 0.12rem 0.5rem; border-radius: 5px; margin-bottom: 0.5rem; }
+  .attribution.ratings { color: var(--ratings); background: var(--ratings-bg); }
+  .attribution.adjustments { color: var(--adj); background: var(--adj-bg); }
+  .attribution.mixed, .attribution.even { color: var(--ink-soft); background: var(--line); }
+  .explain { font-size: 0.9rem; color: var(--ink-soft); margin: 0 0 0.7rem; }
+
+  .detail { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.2rem;
+    font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 0.7rem; }
+  .detail .k { color: var(--ink-faint); }
+  .detail .rating-line { font-family: "IBM Plex Mono", monospace; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+  .chip { font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; padding: 0.15rem 0.5rem;
+    border-radius: 5px; background: var(--adj-bg); color: var(--adj); }
+  .chip.rest { background: var(--ratings-bg); color: var(--ratings); }
+
+  footer { max-width: 920px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; color: var(--ink-faint);
+    font-size: 0.82rem; border-top: 1px solid var(--line); }
+  footer p { max-width: 66ch; }
+  .empty { color: var(--ink-faint); font-style: italic; padding: 2rem 0; }
+
+  @media (max-width: 560px) {
+    .detail { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 4.5rem 1fr; }
+  }
+</style>
+
+<header>
+  <div class="header-top">
+    <div>
+      <p class="eyebrow">Model vs market · the reasoning</p>
+      <h1>The Working</h1>
+    </div>
+    <div class="generated" id="generated">__GENERATED__</div>
+  </div>
+  <nav class="site">
+    <a href="./index.html">Weekend Coupon</a>
+    <a href="./why.html" aria-current="page">The Working</a>
+    <a href="./track-record.html">The Ledger</a>
+  </nav>
+</header>
+
+<main>
+  <p class="intro">
+    Every fixture below is one where <strong>our number and the bookmakers' price
+    disagree</strong> by at least 5 points on some outcome. For each, the gap is
+    split in two: the <strong>ratings-only</strong> forecast (plain attack/defence
+    plus the Dixon-Coles grid, no other adjustments) and the <strong>published</strong>
+    one (after the referee, rest, travel and availability nudges). If the two are
+    close together, the disagreement is a <em>recent-form call</em> — our ratings
+    price the match differently from the market. If the published bar has swung
+    away from the ratings-only one, the <em>adjustments</em> are doing the
+    disagreeing. Market = the pre-match price with the bookmaker's margin removed.
+  </p>
+
+  <div class="stats" id="stats"></div>
+  <div class="fixtures" id="fixtures"></div>
+</main>
+
+<footer>
+  <p>
+    <strong style="color:var(--ink)">Not a betting recommendation.</strong>
+    Ratings come from historical scoring data (expected goals where available,
+    shots on target otherwise), time-decayed; matches are priced with a
+    Poisson-based method (Dixon &amp; Coles, 1997) plus a whole-diagonal draw
+    correction. The referee / rest / travel adjustments each individually made
+    the model slightly <em>less</em> accurate in three seasons of walk-forward
+    testing and are kept on by an explicit decision to use more of the signal
+    bookmakers price in — so a disagreement driven by them is the weakest kind.
+    Where the model and the market diverge, the market usually knows something
+    the numbers don't yet (a signing, team news). Full method in the project README.
+  </p>
+</footer>
+
+<script>
+  const DATA = __DATA_JSON__;
+
+  const fmt1 = n => (Math.round(n * 10) / 10).toFixed(1);
+  const fmtDate = iso => new Date(iso).toLocaleString('en-GB',
+    { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const OUTCOME = { home: 'a home win', draw: 'the draw', away: 'an away win' };
+
+  // ---- summary strip ----
+  const ratingsDriven = DATA.filter(d => d.attribution === 'ratings').length;
+  const adjDriven = DATA.filter(d => d.attribution === 'adjustments').length;
+  const biggest = DATA.reduce((m, d) => Math.max(m, d.gap), 0);
+  const stats = [
+    { n: DATA.length, l: 'Disagreements (≥5pt)' },
+    { n: fmt1(biggest) + 'pt', l: 'Biggest gap' },
+    { n: ratingsDriven, l: 'Ratings-driven' },
+    { n: adjDriven, l: 'Adjustment-driven' },
+  ];
+  const statsEl = document.getElementById('stats');
+  for (const s of stats) {
+    const d = document.createElement('div');
+    d.className = 'stat';
+    d.innerHTML = `<span class="n num">${s.n}</span><span class="l">${s.l}</span>`;
+    statsEl.appendChild(d);
+  }
+
+  // ---- bar ----
+  function bar(label, h, d, a) {
+    const seg = (p, c) => `<div class="seg ${c}" style="width:${p}%">${p >= 12 ? fmt1(p) : ''}</div>`;
+    return `<div class="bar-row"><span class="bar-label">${label}</span>
+      <div class="bar">${seg(h, 'home')}${seg(d, 'draw')}${seg(a, 'away')}</div></div>`;
+  }
+
+  function chip(adj) {
+    const cls = adj.kind === 'rest' ? 'chip rest' : 'chip';
+    const f = adj.kind === 'travel'
+      ? `×${fmt1(adj.away_factor)} away`
+      : `×${fmt1(adj.home_factor)}/${fmt1(adj.away_factor)}`;
+    return `<span class="${cls}">${adj.kind} · ${adj.detail} · ${f}</span>`;
+  }
+
+  const explainText = d => {
+    const o = OUTCOME[d.primary];
+    if (d.attribution === 'ratings')
+      return `On the ratings alone we're already ${fmt1(d.gap)}pt ${d.direction} than the market on ${o}. The adjustments barely move it (${fmt1(d.moved)}pt).`;
+    if (d.attribution === 'adjustments')
+      return `The ratings roughly agree with the market here — the ${fmt1(d.gap)}pt gap on ${o} is almost all from the referee/rest/travel/availability nudges (${fmt1(d.moved)}pt of movement).`;
+    return `Part ratings, part adjustment: the form numbers put us off the market on ${o}, and the nudges move it a further ${fmt1(d.moved)}pt.`;
+  };
+
+  const el = document.getElementById('fixtures');
+  if (!DATA.length) {
+    el.innerHTML = '<p class="empty">No fixtures at a 5-point gap in the current card.</p>';
+  }
+  for (const d of DATA) {
+    const card = document.createElement('div');
+    card.className = 'fixture';
+    const rl = (atk, def, n) => `atk ${atk != null ? atk.toFixed(2) : '–'} · def ${def != null ? def.toFixed(2) : '–'}${n ? ` · ${n} matches` : ''}`;
+    card.innerHTML = `
+      <div class="fx-top">
+        <div class="teams">${d.home}<span class="vs">v</span>${d.away}</div>
+        <div class="fx-meta num">${d.league} · ${fmtDate(d.date)}</div>
+      </div>
+      <p class="headline">We're ${fmt1(d.gap)}pt ${d.direction} than the market on ${OUTCOME[d.primary]}</p>
+      <div class="bars">
+        ${bar('Market', d.mHome, d.mDraw, d.mAway)}
+        ${bar('Ratings only', d.pureHome, d.pureDraw, d.pureAway)}
+        ${bar('Published', d.pHome, d.pDraw, d.pAway)}
+      </div>
+      <span class="attribution ${d.attribution}">${d.attribution === 'ratings' ? 'ratings-driven' : d.attribution === 'adjustments' ? 'adjustment-driven' : 'mixed'}</span>
+      <p class="explain">${explainText(d)}</p>
+      <div class="detail">
+        <div><span class="k">${d.home}</span><br><span class="rating-line">${rl(d.homeAtk, d.homeDef, d.homeMatches)}</span></div>
+        <div><span class="k">${d.away}</span><br><span class="rating-line">${rl(d.awayAtk, d.awayDef, d.awayMatches)}</span></div>
+        <div><span class="k">Expected goals</span><br><span class="num">${d.baseGoals[0]} – ${d.baseGoals[1]}${(d.finalGoals[0] !== d.baseGoals[0] || d.finalGoals[1] !== d.baseGoals[1]) ? ` &nbsp;→&nbsp; ${d.finalGoals[0]} – ${d.finalGoals[1]} after nudges` : ' (ratings only)'}</span></div>
+        <div><span class="k">Likely score · input stat</span><br><span class="num">${d.score} · ${d.stat}</span></div>
+      </div>
+      ${d.adjustments.length ? `<div class="chips">${d.adjustments.map(chip).join('')}</div>` : ''}`;
+    el.appendChild(card);
+  }
+</script>

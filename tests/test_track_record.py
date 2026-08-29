@@ -64,6 +64,33 @@ def test_build_validation_includes_extended_battery(synthetic_matches, monkeypat
     assert "gap_to_market_significant" in val["headline"]
 
 
+def test_render_produces_html_without_placeholders():
+    payload = {
+        "generated": "2026-08-29 10:00 UTC",
+        "live": {"n_logged": 3, "n_scored": 0, "n_pending": 3, "n_with_market": 2,
+                 "span": None, "model": None, "market": None, "cumulative": [],
+                 "calibration": [], "scoreline": None, "by_league": [], "fixtures": []},
+        "validation": {"window": {"start": "2025-08-01", "end": "2026-05-01"},
+                       "config": {}, "headline": {"model_rps": 0.2, "model_log_loss": 1.0,
+                       "model_n": 100, "coverage": 0.95, "devig_rps": 0.19, "devig_n": 100,
+                       "elo_rps": 0.21, "elo_n": 100, "calibration_error": 0.02,
+                       "beats_elo": True, "beats_elo_significant": False,
+                       "gap_to_market": 0.01, "gap_to_market_significant": True},
+                       "monthly": {"model": [], "devig": [], "elo": []},
+                       "calibration": {}, "brier": None, "sharpness": None,
+                       "significance": {}, "by_season": [], "leagues": []},
+    }
+    html = tr.render(payload)
+    assert "__DATA_JSON__" not in html and "__GENERATED__" not in html
+    assert "The Ledger" in html
+    assert "2026-08-29 10:00 UTC" in html
+
+
+def test_render_template_exists_and_has_placeholder():
+    assert tr.TEMPLATE.exists()
+    assert "const DATA = __DATA_JSON__;" in tr.TEMPLATE.read_text(encoding="utf-8")
+
+
 def test_build_validation_config_reflects_production_defaults(synthetic_matches, monkeypatch, tmp_path):
     import config
     monkeypatch.setattr(tr, "_load_matches", lambda: synthetic_matches)

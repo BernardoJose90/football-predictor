@@ -149,6 +149,27 @@
     background: var(--paper-raised);
   }
 
+  nav.site {
+    max-width: 920px;
+    margin: 0.6rem auto 0;
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+  }
+  nav.site a {
+    flex: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.75rem;
+    text-decoration: none;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 100px;
+    padding: 0.3rem 0.8rem;
+    white-space: nowrap;
+  }
+  nav.site a[aria-current="page"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+  nav.site a:hover { border-color: var(--amber); }
+
   main { max-width: 920px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
 
   /* ---- intro ---- */
@@ -302,6 +323,11 @@
     </div>
     <div class="date-range num" id="date-range">28–31 Aug 2026</div>
   </div>
+  <nav class="site">
+    <a href="./index.html" aria-current="page">Weekend Coupon</a>
+    <a href="./why.html">The Working</a>
+    <a href="./track-record.html">The Ledger</a>
+  </nav>
   <nav class="leagues" id="league-nav" aria-label="Jump to league"></nav>
 </header>
 

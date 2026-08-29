@@ -186,6 +186,23 @@ def build(eval_start: str, eval_end: str | None) -> dict:
     }
 
 
+TEMPLATE = config.ROOT / "web" / "track_record_template.html"
+HTML_OUT = config.ROOT / "docs" / "track-record.html"
+
+
+def render(payload: dict, template=None) -> str:
+    """Fill web/track_record_template.html with the payload from build()."""
+    from pathlib import Path
+    tmpl = Path(template) if template else TEMPLATE
+    html = tmpl.read_text(encoding="utf-8")
+    if "const DATA = __DATA_JSON__;" not in html:
+        raise RuntimeError(f"{tmpl}: missing 'const DATA = __DATA_JSON__;' placeholder")
+    return (html
+            .replace("const DATA = __DATA_JSON__;",
+                     f"const DATA = {json.dumps(payload, separators=(',', ':'))};")
+            .replace("__GENERATED__", payload.get("generated", "")))
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--eval-start", default="2025-08-01",
@@ -193,6 +210,8 @@ def main(argv=None) -> int:
                          "it's whatever has been logged)")
     ap.add_argument("--eval-end", default=None)
     ap.add_argument("--out", default=str(config.ARTEFACTS / "track_record.json"))
+    ap.add_argument("--html-out", default=str(HTML_OUT))
+    ap.add_argument("--no-html", action="store_true", help="skip rendering docs/track-record.html")
     args = ap.parse_args(argv)
 
     payload = build(args.eval_start, args.eval_end)
@@ -200,6 +219,12 @@ def main(argv=None) -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    if not args.no_html:
+        html_out = Path(args.html_out)
+        html_out.parent.mkdir(parents=True, exist_ok=True)
+        html_out.write_text(render(payload), encoding="utf-8")
+        print(f"wrote {html_out}")
 
     live = payload["live"]
     val = payload["validation"]["headline"]

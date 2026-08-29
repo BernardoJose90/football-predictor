@@ -1,0 +1,257 @@
+<title>The Working</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #eef0e8;
+    --paper-raised: #f7f8f2;
+    --ink: #14181d;
+    --ink-soft: #454e46;
+    --ink-faint: #7a8279;
+    --line: rgba(20,24,29,0.13);
+    --line-strong: rgba(20,24,29,0.22);
+    --amber: #b9791c;
+    --amber-ink: #6e4610;
+    --home: #2f7a52;
+    --draw: #93762f;
+    --away: #6a3f7a;
+    --ratings: #2f6a7a;
+    --ratings-bg: rgba(47,106,122,0.13);
+    --adj: #a8461f;
+    --adj-bg: rgba(168,70,31,0.13);
+    --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
+      --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
+      --amber: #e3ac4c; --amber-ink: #f0c274; --home: #4fa878; --draw: #c7a565; --away: #a875b8;
+      --ratings: #5aa7bd; --ratings-bg: rgba(90,167,189,0.16);
+      --adj: #e07a4c; --adj-bg: rgba(224,122,76,0.16);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
+    --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
+    --amber: #e3ac4c; --amber-ink: #f0c274; --home: #4fa878; --draw: #c7a565; --away: #a875b8;
+    --ratings: #5aa7bd; --ratings-bg: rgba(90,167,189,0.16);
+    --adj: #e07a4c; --adj-bg: rgba(224,122,76,0.16);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  a { color: var(--amber-ink); }
+
+  header { position: sticky; top: 0; z-index: 10; background: var(--paper);
+    border-bottom: 1px solid var(--line); padding: 0.9rem 1.5rem 0; }
+  .header-top { display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; max-width: 920px; margin: 0 auto; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber-ink); margin: 0 0 0.15rem; }
+  h1 { font-family: "Big Shoulders Display", sans-serif; font-weight: 800;
+    font-size: clamp(2.1rem, 5vw, 3.1rem); letter-spacing: 0.005em; text-transform: uppercase;
+    margin: 0; line-height: 0.92; }
+  .generated { font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--ink-faint); }
+  nav.site { max-width: 920px; margin: 0.75rem auto 0; display: flex; gap: 0.4rem;
+    overflow-x: auto; padding-bottom: 0.7rem; }
+  nav.site a { flex: none; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem;
+    text-decoration: none; color: var(--ink-soft); border: 1px solid var(--line-strong);
+    border-radius: 100px; padding: 0.3rem 0.8rem; white-space: nowrap; }
+  nav.site a[aria-current="page"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+  nav.site a:hover { border-color: var(--amber); }
+
+  main { max-width: 920px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+  .intro { font-size: 0.98rem; color: var(--ink-soft); max-width: 64ch; margin: 0 0 1.5rem; }
+  .intro strong { color: var(--ink); font-weight: 600; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    margin-bottom: 2.25rem; }
+  .stat { background: var(--paper-raised); padding: 0.85rem 1rem; }
+  .stat .n { font-family: "Big Shoulders Display", sans-serif; font-weight: 700; font-size: 1.85rem;
+    line-height: 1; display: block; }
+  .stat .l { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: 0.06em; margin-top: 0.3rem; display: block; }
+
+  .fixtures { display: flex; flex-direction: column; gap: 1rem; }
+  .fixture { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.15rem; box-shadow: var(--shadow); }
+  .fx-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .teams { font-weight: 600; font-size: 1.05rem; }
+  .teams .vs { color: var(--ink-faint); font-weight: 400; margin: 0 0.4rem; font-size: 0.85em; }
+  .fx-meta { font-size: 0.78rem; color: var(--ink-faint); }
+  .headline { font-family: "Big Shoulders Display", sans-serif; font-weight: 700;
+    font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 0.6rem;
+    color: var(--adj); }
+
+  .bars { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.4rem 0 0.7rem; }
+  .bar-row { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.55rem; align-items: center; }
+  .bar-label { font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
+  .bar { display: flex; height: 1.15rem; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .seg { display: flex; align-items: center; justify-content: center; font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem; color: #fff; white-space: nowrap; overflow: hidden; }
+  .seg.home { background: var(--home); } .seg.draw { background: var(--draw); } .seg.away { background: var(--away); }
+
+  .attribution { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+    padding: 0.12rem 0.5rem; border-radius: 5px; margin-bottom: 0.5rem; }
+  .attribution.ratings { color: var(--ratings); background: var(--ratings-bg); }
+  .attribution.adjustments { color: var(--adj); background: var(--adj-bg); }
+  .attribution.mixed, .attribution.even { color: var(--ink-soft); background: var(--line); }
+  .explain { font-size: 0.9rem; color: var(--ink-soft); margin: 0 0 0.7rem; }
+
+  .detail { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.2rem;
+    font-size: 0.82rem; border-top: 1px solid var(--line); padding-top: 0.7rem; }
+  .detail .k { color: var(--ink-faint); }
+  .detail .rating-line { font-family: "IBM Plex Mono", monospace; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+  .chip { font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; padding: 0.15rem 0.5rem;
+    border-radius: 5px; background: var(--adj-bg); color: var(--adj); }
+  .chip.rest { background: var(--ratings-bg); color: var(--ratings); }
+
+  footer { max-width: 920px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; color: var(--ink-faint);
+    font-size: 0.82rem; border-top: 1px solid var(--line); }
+  footer p { max-width: 66ch; }
+  .empty { color: var(--ink-faint); font-style: italic; padding: 2rem 0; }
+
+  @media (max-width: 560px) {
+    .detail { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 4.5rem 1fr; }
+  }
+</style>
+
+<header>
+  <div class="header-top">
+    <div>
+      <p class="eyebrow">Model vs market · the reasoning</p>
+      <h1>The Working</h1>
+    </div>
+    <div class="generated" id="generated">2026-08-29 10:58 UTC</div>
+  </div>
+  <nav class="site">
+    <a href="./index.html">Weekend Coupon</a>
+    <a href="./why.html" aria-current="page">The Working</a>
+    <a href="./track-record.html">The Ledger</a>
+  </nav>
+</header>
+
+<main>
+  <p class="intro">
+    Every fixture below is one where <strong>our number and the bookmakers' price
+    disagree</strong> by at least 5 points on some outcome. For each, the gap is
+    split in two: the <strong>ratings-only</strong> forecast (plain attack/defence
+    plus the Dixon-Coles grid, no other adjustments) and the <strong>published</strong>
+    one (after the referee, rest, travel and availability nudges). If the two are
+    close together, the disagreement is a <em>recent-form call</em> — our ratings
+    price the match differently from the market. If the published bar has swung
+    away from the ratings-only one, the <em>adjustments</em> are doing the
+    disagreeing. Market = the pre-match price with the bookmaker's margin removed.
+  </p>
+
+  <div class="stats" id="stats"></div>
+  <div class="fixtures" id="fixtures"></div>
+</main>
+
+<footer>
+  <p>
+    <strong style="color:var(--ink)">Not a betting recommendation.</strong>
+    Ratings come from historical scoring data (expected goals where available,
+    shots on target otherwise), time-decayed; matches are priced with a
+    Poisson-based method (Dixon &amp; Coles, 1997) plus a whole-diagonal draw
+    correction. The referee / rest / travel adjustments each individually made
+    the model slightly <em>less</em> accurate in three seasons of walk-forward
+    testing and are kept on by an explicit decision to use more of the signal
+    bookmakers price in — so a disagreement driven by them is the weakest kind.
+    Where the model and the market diverge, the market usually knows something
+    the numbers don't yet (a signing, team news). Full method in the project README.
+  </p>
+</footer>
+
+<script>
+  const DATA = [{"league":"Scottish Premiership","date":"2026-08-29T15:00","home":"Kilmarnock","away":"Dundee United","score":"1-0","primary":"home","direction":"higher","pureHome":44.7,"pureDraw":24.0,"pureAway":31.3,"pHome":60.0,"pDraw":22.2,"pAway":17.8,"mHome":39.0,"mDraw":27.0,"mAway":34.0,"homeAtk":0.9583,"homeDef":1.2412,"awayAtk":0.9468,"awayDef":1.1585,"homeMatches":116,"awayMatches":79,"baseGoals":[1.795,1.465],"finalGoals":[1.977,0.951],"stat":"sot","adjustments":[{"kind":"referee","detail":"N Walsh","home_factor":1.0494,"away_factor":0.6542},{"kind":"rest","detail":"19d home / 6d away","home_factor":1.05,"away_factor":1.0},{"kind":"travel","detail":"135 km","home_factor":1.0,"away_factor":0.9919}],"gap":20.9,"moved":15.3,"attribution":"adjustments"},{"league":"Scottish Premiership","date":"2026-08-30T15:00","home":"St Mirren","away":"Motherwell","score":"1-0","primary":"home","direction":"higher","pureHome":40.2,"pureDraw":28.2,"pureAway":31.7,"pHome":56.4,"pDraw":24.9,"pAway":18.7,"mHome":37.7,"mDraw":28.0,"mAway":34.2,"homeAtk":0.8867,"homeDef":0.8848,"awayAtk":1.0244,"awayDef":0.9178,"homeMatches":116,"awayMatches":116,"baseGoals":[1.316,1.13],"finalGoals":[1.694,0.839],"stat":"sot","adjustments":[{"kind":"referee","detail":"K Clancy","home_factor":1.2263,"away_factor":0.7081},{"kind":"rest","detail":"21d home / 20d away","home_factor":1.05,"away_factor":1.05},{"kind":"travel","detail":"28 km","home_factor":1.0,"away_factor":0.9983}],"gap":18.6,"moved":16.2,"attribution":"adjustments"},{"league":"La Liga","date":"2026-08-29T16:00","home":"Levante","away":"Betis","score":"1-1","primary":"home","direction":"higher","pureHome":40.7,"pureDraw":25.6,"pureAway":33.7,"pHome":43.5,"pDraw":26.7,"pAway":29.8,"mHome":28.0,"mDraw":28.8,"mAway":43.2,"homeAtk":1.0794,"homeDef":1.1436,"awayAtk":1.0631,"awayDef":0.9174,"homeMatches":38,"awayMatches":114,"baseGoals":[1.543,1.379],"finalGoals":[1.481,1.169],"stat":"xg","adjustments":[{"kind":"rest","detail":"4d home / 3d away","home_factor":0.96,"away_factor":0.94},{"kind":"travel","detail":"543 km","home_factor":1.0,"away_factor":0.9022}],"gap":15.6,"moved":3.9,"attribution":"ratings"},{"league":"Serie A","date":"2026-08-29T17:30","home":"Fiorentina","away":"Frosinone","score":"1-1","primary":"home","direction":"lower","pureHome":45.2,"pureDraw":26.2,"pureAway":28.6,"pHome":44.6,"pDraw":26.8,"pAway":28.6,"mHome":58.7,"mDraw":23.2,"mAway":18.1,"homeAtk":0.9766,"homeDef":1.0326,"awayAtk":0.9645,"awayDef":1.225,"homeMatches":113,"awayMatches":38,"baseGoals":[1.546,1.167],"finalGoals":[1.484,1.124],"stat":"xg","adjustments":[{"kind":"rest","detail":"4d home / 5d away","home_factor":0.96,"away_factor":0.98},{"kind":"travel","detail":"292 km","home_factor":1.0,"away_factor":0.9825}],"gap":14.1,"moved":0.6,"attribution":"ratings"},{"league":"La Liga","date":"2026-08-31T20:30","home":"Barcelona","away":"Vallecano","score":"2-1","primary":"home","direction":"lower","pureHome":70.9,"pureDraw":16.8,"pureAway":12.3,"pHome":67.9,"pDraw":18.2,"pAway":13.9,"mHome":80.9,"mDraw":11.8,"mAway":7.3,"homeAtk":1.6988,"homeDef":0.8497,"awayAtk":1.0273,"awayDef":0.9907,"homeMatches":114,"awayMatches":114,"baseGoals":[2.622,0.99],"finalGoals":[2.465,1.008],"stat":"xg","adjustments":[{"kind":"rest","detail":"3d home / 10d away","home_factor":0.94,"away_factor":1.05},{"kind":"travel","detail":"498 km","home_factor":1.0,"away_factor":0.9701}],"gap":13.0,"moved":3.0,"attribution":"ratings"},{"league":"Premier League","date":"2026-08-30T14:00","home":"Chelsea","away":"Brighton","score":"1-1","primary":"home","direction":"lower","pureHome":46.0,"pureDraw":25.0,"pureAway":29.0,"pHome":41.6,"pDraw":27.7,"pAway":30.6,"mHome":52.2,"mDraw":23.9,"mAway":23.9,"homeAtk":1.1901,"homeDef":0.9837,"awayAtk":1.0155,"awayDef":0.9185,"homeMatches":114,"awayMatches":114,"baseGoals":[1.681,1.276],"finalGoals":[1.37,1.127],"stat":"xg","adjustments":[{"kind":"referee","detail":"M Oliver","home_factor":0.8631,"away_factor":0.9619},{"kind":"rest","detail":"5d home / 6d away","home_factor":0.98,"away_factor":1.0},{"kind":"travel","detail":"69 km","home_factor":1.0,"away_factor":0.9958},{"kind":"injuries","detail":"home 88% avail / away 74% avail","home_factor":0.9632,"away_factor":0.9222}],"gap":10.6,"moved":4.4,"attribution":"mixed"},{"league":"Scottish Premiership","date":"2026-08-30T15:00","home":"Dundee","away":"Hibernian","score":"1-1","primary":"home","direction":"higher","pureHome":35.4,"pureDraw":26.4,"pureAway":38.2,"pHome":39.5,"pDraw":23.2,"pAway":37.3,"mHome":29.4,"mDraw":27.7,"mAway":42.8,"homeAtk":0.8548,"homeDef":1.2029,"awayAtk":0.9433,"awayDef":0.9778,"homeMatches":117,"awayMatches":116,"baseGoals":[1.351,1.415],"finalGoals":[1.835,1.778],"stat":"sot","adjustments":[{"kind":"referee","detail":"J Beaton","home_factor":1.3314,"away_factor":1.2009},{"kind":"rest","detail":"7d home / 20d away","home_factor":1.02,"away_factor":1.05},{"kind":"travel","detail":"59 km","home_factor":1.0,"away_factor":0.9965}],"gap":10.1,"moved":4.1,"attribution":"mixed"},{"league":"Premier League","date":"2026-08-29T12:30","home":"Liverpool","away":"Nott'm Forest","score":"1-1","primary":"home","direction":"lower","pureHome":60.5,"pureDraw":21.8,"pureAway":17.7,"pHome":53.9,"pDraw":24.2,"pAway":21.9,"mHome":62.7,"mDraw":20.9,"mAway":16.4,"homeAtk":1.2434,"homeDef":0.8838,"awayAtk":0.8612,"awayDef":1.0606,"homeMatches":114,"awayMatches":114,"baseGoals":[2.029,0.973],"finalGoals":[1.784,1.029],"stat":"xg","adjustments":[{"kind":"referee","detail":"S Barrott","home_factor":0.9814,"away_factor":1.0994},{"kind":"rest","detail":"5d home / 6d away","home_factor":0.98,"away_factor":1.0},{"kind":"travel","detail":"133 km","home_factor":1.0,"away_factor":0.992},{"kind":"injuries","detail":"home 71% avail / away 90% avail","home_factor":0.9143,"away_factor":0.9698}],"gap":8.8,"moved":6.6,"attribution":"adjustments"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Norwich","away":"Burnley","score":"1-1","primary":"home","direction":"lower","pureHome":34.2,"pureDraw":28.8,"pureAway":37.0,"pHome":34.0,"pDraw":30.3,"pAway":35.7,"mHome":42.7,"mDraw":26.1,"mAway":31.3,"homeAtk":1.1114,"homeDef":0.9764,"awayAtk":1.0535,"awayDef":0.7317,"homeMatches":140,"awayMatches":48,"baseGoals":[1.155,1.216],"finalGoals":[1.072,1.108],"stat":"sot","adjustments":[{"kind":"referee","detail":"E Bell","home_factor":0.9282,"away_factor":0.9451},{"kind":"rest","detail":"6d home / 5d away","home_factor":1.0,"away_factor":0.98},{"kind":"travel","detail":"269 km","home_factor":1.0,"away_factor":0.9839}],"gap":8.7,"moved":1.5,"attribution":"ratings"},{"league":"Scottish Premiership","date":"2026-08-29T15:00","home":"Hearts","away":"St Johnstone","score":"1-0","primary":"home","direction":"higher","pureHome":67.8,"pureDraw":21.0,"pureAway":11.2,"pHome":63.5,"pDraw":20.5,"pAway":16.1,"mHome":54.9,"mDraw":24.6,"mAway":20.5,"homeAtk":1.1293,"homeDef":0.662,"awayAtk":0.7487,"awayDef":1.0755,"homeMatches":116,"awayMatches":78,"baseGoals":[1.963,0.618],"finalGoals":[2.176,0.972],"stat":"sot","adjustments":[{"kind":"referee","detail":"R Lee","home_factor":1.0555,"away_factor":1.5028},{"kind":"rest","detail":"19d home / 20d away","home_factor":1.05,"away_factor":1.05},{"kind":"travel","detail":"53 km","home_factor":1.0,"away_factor":0.9968}],"gap":8.6,"moved":4.8,"attribution":"ratings"},{"league":"Primeira Liga","date":"2026-08-31T20:15","home":"Benfica","away":"Estoril","score":"2-0","primary":"home","direction":"lower","pureHome":70.9,"pureDraw":17.2,"pureAway":11.9,"pHome":72.1,"pDraw":16.4,"pAway":11.5,"mHome":80.1,"mDraw":12.3,"mAway":7.7,"homeAtk":1.5934,"homeDef":0.7753,"awayAtk":0.9799,"awayDef":1.0525,"homeMatches":104,"awayMatches":105,"baseGoals":[2.5,0.901],"finalGoals":[2.625,0.936],"stat":"sot","adjustments":[{"kind":"rest","detail":"13d home / 8d away","home_factor":1.05,"away_factor":1.04},{"kind":"travel","detail":"19 km","home_factor":1.0,"away_factor":0.9988}],"gap":8.0,"moved":1.2,"attribution":"ratings"},{"league":"EFL Championship","date":"2026-08-29T12:30","home":"Middlesbrough","away":"West Brom","score":"1-0","primary":"home","direction":"lower","pureHome":46.3,"pureDraw":27.2,"pureAway":26.6,"pHome":47.1,"pDraw":27.2,"pAway":25.7,"mHome":54.6,"mDraw":24.6,"mAway":20.8,"homeAtk":1.2494,"homeDef":0.8697,"awayAtk":1.0049,"awayDef":0.8294,"homeMatches":140,"awayMatches":140,"baseGoals":[1.471,1.033],"finalGoals":[1.471,0.998],"stat":"sot","adjustments":[{"kind":"rest","detail":"6d home / 5d away","home_factor":1.0,"away_factor":0.98},{"kind":"travel","detail":"235 km","home_factor":1.0,"away_factor":0.9859}],"gap":7.6,"moved":0.9,"attribution":"ratings"},{"league":"Premier League","date":"2026-08-30T14:00","home":"Leeds","away":"Brentford","score":"1-1","primary":"away","direction":"higher","pureHome":43.0,"pureDraw":25.1,"pureAway":31.9,"pHome":29.8,"pDraw":27.8,"pAway":42.4,"mHome":36.4,"mDraw":28.6,"mAway":35.0,"homeAtk":1.0345,"homeDef":0.9613,"awayAtk":1.112,"awayDef":1.0253,"homeMatches":38,"awayMatches":114,"baseGoals":[1.632,1.366],"finalGoals":[1.101,1.378],"stat":"xg","adjustments":[{"kind":"referee","detail":"T Harrington","home_factor":0.7027,"away_factor":1.0283},{"kind":"rest","detail":"7d home / 7d away","home_factor":1.02,"away_factor":1.02},{"kind":"travel","detail":"269 km","home_factor":1.0,"away_factor":0.9839},{"kind":"injuries","detail":"home 81% avail / away 93% avail","home_factor":0.9416,"away_factor":0.9778}],"gap":7.4,"moved":13.2,"attribution":"adjustments"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Cardiff","away":"Sheffield United","score":"1-1","primary":"away","direction":"higher","pureHome":36.2,"pureDraw":25.7,"pureAway":38.2,"pHome":31.0,"pDraw":25.0,"pAway":44.0,"mHome":36.4,"mDraw":26.5,"mAway":37.1,"homeAtk":1.0565,"homeDef":1.2324,"awayAtk":1.0207,"awayDef":0.9606,"homeMatches":94,"awayMatches":94,"baseGoals":[1.441,1.487],"finalGoals":[1.35,1.66],"stat":"sot","adjustments":[{"kind":"referee","detail":"J Busby","home_factor":0.937,"away_factor":1.1322},{"kind":"travel","detail":"241 km","home_factor":1.0,"away_factor":0.9855}],"gap":6.9,"moved":5.8,"attribution":"adjustments"},{"league":"Primeira Liga","date":"2026-08-30T15:30","home":"Nacional","away":"Estrela","score":"1-1","primary":"home","direction":"higher","pureHome":47.6,"pureDraw":25.4,"pureAway":27.0,"pHome":47.9,"pDraw":25.4,"pAway":26.7,"mHome":41.0,"mDraw":28.6,"mAway":30.4,"homeAtk":0.9792,"homeDef":1.1331,"awayAtk":0.8655,"awayDef":1.1256,"homeMatches":71,"awayMatches":104,"baseGoals":[1.643,1.164],"finalGoals":[1.643,1.151],"stat":"sot","adjustments":[{"kind":"rest","detail":"6d home / 14d away","home_factor":1.0,"away_factor":1.05},{"kind":"travel","detail":"969 km","home_factor":1.0,"away_factor":0.9419}],"gap":6.9,"moved":0.3,"attribution":"ratings"},{"league":"Premier League","date":"2026-08-29T17:30","home":"Tottenham","away":"Newcastle","score":"1-1","primary":"away","direction":"lower","pureHome":35.8,"pureDraw":26.5,"pureAway":37.7,"pHome":47.0,"pDraw":26.9,"pAway":26.1,"mHome":42.1,"mDraw":25.3,"mAway":32.7,"homeAtk":0.8799,"homeDef":0.9988,"awayAtk":1.0936,"awayDef":0.9978,"homeMatches":114,"awayMatches":114,"baseGoals":[1.351,1.396],"finalGoals":[1.5,1.035],"stat":"xg","adjustments":[{"kind":"referee","detail":"P Bankes","home_factor":1.1807,"away_factor":0.8179},{"kind":"rest","detail":"6d home / 5d away","home_factor":1.0,"away_factor":0.98},{"kind":"travel","detail":"389 km","home_factor":1.0,"away_factor":0.9767},{"kind":"injuries","detail":"home 80% avail / away 82% avail","home_factor":0.9408,"away_factor":0.9471}],"gap":6.5,"moved":11.6,"attribution":"ratings"},{"league":"Serie A","date":"2026-08-31T17:30","home":"Lecce","away":"Roma","score":"0-1","primary":"away","direction":"lower","pureHome":16.6,"pureDraw":24.0,"pureAway":59.5,"pHome":17.5,"pDraw":24.6,"pAway":57.8,"mHome":11.9,"mDraw":23.8,"mAway":64.3,"homeAtk":0.7373,"homeDef":1.235,"awayAtk":1.22,"awayDef":0.819,"homeMatches":114,"awayMatches":113,"baseGoals":[0.78,1.766],"finalGoals":[0.796,1.712],"stat":"xg","adjustments":[{"kind":"rest","detail":"7d home / 6d away","home_factor":1.02,"away_factor":1.0},{"kind":"travel","detail":"509 km","home_factor":1.0,"away_factor":0.9694}],"gap":6.5,"moved":1.6,"attribution":"ratings"},{"league":"Serie A","date":"2026-08-29T19:45","home":"Juventus","away":"Parma","score":"1-0","primary":"home","direction":"lower","pureHome":71.5,"pureDraw":19.1,"pureAway":9.3,"pHome":70.9,"pDraw":19.6,"pAway":9.5,"mHome":77.0,"mDraw":14.5,"mAway":8.5,"homeAtk":1.358,"homeDef":0.6796,"awayAtk":0.712,"awayDef":1.1908,"homeMatches":114,"awayMatches":76,"baseGoals":[2.09,0.567],"finalGoals":[2.048,0.56],"stat":"xg","adjustments":[{"kind":"rest","detail":"5d home / 6d away","home_factor":0.98,"away_factor":1.0},{"kind":"travel","detail":"214 km","home_factor":1.0,"away_factor":0.9871}],"gap":6.1,"moved":0.6,"attribution":"ratings"},{"league":"Ligue 1","date":"2026-08-29T19:45","home":"Lyon","away":"Le Havre","score":"1-0","primary":"home","direction":"lower","pureHome":58.5,"pureDraw":22.8,"pureAway":18.8,"pHome":59.7,"pDraw":22.6,"pAway":17.7,"mHome":65.5,"mDraw":21.0,"mAway":13.5,"homeAtk":1.0905,"homeDef":0.9597,"awayAtk":0.7777,"awayDef":1.1347,"homeMatches":101,"awayMatches":102,"baseGoals":[1.928,0.971],"finalGoals":[1.928,0.92],"stat":"xg","adjustments":[{"kind":"rest","detail":"6d home / 5d away","home_factor":1.0,"away_factor":0.98},{"kind":"travel","detail":"550 km","home_factor":1.0,"away_factor":0.967}],"gap":5.9,"moved":1.2,"attribution":"ratings"},{"league":"Ligue 1","date":"2026-08-30T14:00","home":"Paris FC","away":"Nice","score":"1-1","primary":"away","direction":"higher","pureHome":42.8,"pureDraw":25.2,"pureAway":32.0,"pHome":44.2,"pDraw":25.1,"pAway":30.8,"mHome":46.3,"mDraw":28.8,"mAway":25.0,"homeAtk":0.975,"homeDef":1.0566,"awayAtk":0.9921,"awayDef":1.0658,"homeMatches":34,"awayMatches":100,"baseGoals":[1.62,1.363],"finalGoals":[1.652,1.334],"stat":"xg","adjustments":[{"kind":"rest","detail":"7d home / 7d away","home_factor":1.02,"away_factor":1.02},{"kind":"travel","detail":"679 km","home_factor":1.0,"away_factor":0.9592}],"gap":5.8,"moved":1.4,"attribution":"ratings"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Bristol City","away":"Portsmouth","score":"1-1","primary":"home","direction":"higher","pureHome":41.9,"pureDraw":27.2,"pureAway":30.9,"pHome":50.0,"pDraw":25.6,"pAway":24.4,"mHome":44.4,"mDraw":27.4,"mAway":28.2,"homeAtk":0.9897,"homeDef":1.0354,"awayAtk":0.9559,"awayDef":1.009,"homeMatches":140,"awayMatches":94,"baseGoals":[1.418,1.17],"finalGoals":[1.636,1.048],"stat":"sot","adjustments":[{"kind":"referee","detail":"J Bell","home_factor":1.154,"away_factor":0.9028},{"kind":"travel","detail":"130 km","home_factor":1.0,"away_factor":0.9922}],"gap":5.7,"moved":8.1,"attribution":"adjustments"},{"league":"Serie A","date":"2026-08-29T17:30","home":"Sassuolo","away":"Torino","score":"1-1","primary":"away","direction":"higher","pureHome":37.9,"pureDraw":27.3,"pureAway":34.8,"pHome":38.1,"pDraw":27.7,"pAway":34.2,"mHome":42.1,"mDraw":29.2,"mAway":28.7,"homeAtk":0.9241,"homeDef":1.169,"awayAtk":0.925,"awayDef":1.1185,"homeMatches":76,"awayMatches":114,"baseGoals":[1.336,1.268],"finalGoals":[1.309,1.223],"stat":"xg","adjustments":[{"kind":"rest","detail":"5d home / 5d away","home_factor":0.98,"away_factor":0.98},{"kind":"travel","detail":"254 km","home_factor":1.0,"away_factor":0.9848}],"gap":5.5,"moved":0.6,"attribution":"ratings"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Blackburn","away":"QPR","score":"1-1","primary":"home","direction":"higher","pureHome":35.7,"pureDraw":28.9,"pureAway":35.4,"pHome":42.2,"pDraw":27.9,"pAway":29.9,"mHome":37.0,"mDraw":28.0,"mAway":34.9,"homeAtk":0.8202,"homeDef":0.9362,"awayAtk":1.0629,"awayDef":1.0166,"homeMatches":140,"awayMatches":140,"baseGoals":[1.184,1.177],"finalGoals":[1.365,1.094],"stat":"sot","adjustments":[{"kind":"referee","detail":"G Ward","home_factor":1.1524,"away_factor":0.9465},{"kind":"travel","detail":"290 km","home_factor":1.0,"away_factor":0.9826}],"gap":5.2,"moved":6.5,"attribution":"adjustments"},{"league":"Serie A","date":"2026-08-30T19:45","home":"Lazio","away":"Genoa","score":"1-0","primary":"away","direction":"higher","pureHome":43.2,"pureDraw":30.0,"pureAway":26.8,"pHome":42.6,"pDraw":30.3,"pAway":27.1,"mHome":47.5,"mDraw":30.6,"mAway":21.9,"homeAtk":0.9508,"homeDef":0.8969,"awayAtk":0.8638,"awayDef":1.0168,"homeMatches":114,"awayMatches":113,"baseGoals":[1.25,0.908],"finalGoals":[1.225,0.904],"stat":"xg","adjustments":[{"kind":"rest","detail":"5d home / 7d away","home_factor":0.98,"away_factor":1.02},{"kind":"travel","detail":"396 km","home_factor":1.0,"away_factor":0.9762}],"gap":5.2,"moved":0.6,"attribution":"ratings"},{"league":"EFL Championship","date":"2026-08-29T15:00","home":"Southampton","away":"Millwall","score":"1-1","primary":"home","direction":"higher","pureHome":47.5,"pureDraw":25.9,"pureAway":26.6,"pHome":53.6,"pDraw":24.0,"pAway":22.4,"mHome":48.5,"mDraw":25.7,"mAway":25.7,"homeAtk":1.2972,"homeDef":0.9222,"awayAtk":1.0242,"awayDef":0.8669,"homeMatches":94,"awayMatches":140,"baseGoals":[1.597,1.117],"finalGoals":[1.812,1.068],"stat":"sot","adjustments":[{"kind":"referee","detail":"A Herczeg","home_factor":1.1346,"away_factor":0.963},{"kind":"travel","detail":"113 km","home_factor":1.0,"away_factor":0.9932}],"gap":5.1,"moved":6.1,"attribution":"adjustments"}];
+
+  const fmt1 = n => (Math.round(n * 10) / 10).toFixed(1);
+  const fmtDate = iso => new Date(iso).toLocaleString('en-GB',
+    { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const OUTCOME = { home: 'a home win', draw: 'the draw', away: 'an away win' };
+
+  // ---- summary strip ----
+  const ratingsDriven = DATA.filter(d => d.attribution === 'ratings').length;
+  const adjDriven = DATA.filter(d => d.attribution === 'adjustments').length;
+  const biggest = DATA.reduce((m, d) => Math.max(m, d.gap), 0);
+  const stats = [
+    { n: DATA.length, l: 'Disagreements (≥5pt)' },
+    { n: fmt1(biggest) + 'pt', l: 'Biggest gap' },
+    { n: ratingsDriven, l: 'Ratings-driven' },
+    { n: adjDriven, l: 'Adjustment-driven' },
+  ];
+  const statsEl = document.getElementById('stats');
+  for (const s of stats) {
+    const d = document.createElement('div');
+    d.className = 'stat';
+    d.innerHTML = `<span class="n num">${s.n}</span><span class="l">${s.l}</span>`;
+    statsEl.appendChild(d);
+  }
+
+  // ---- bar ----
+  function bar(label, h, d, a) {
+    const seg = (p, c) => `<div class="seg ${c}" style="width:${p}%">${p >= 12 ? fmt1(p) : ''}</div>`;
+    return `<div class="bar-row"><span class="bar-label">${label}</span>
+      <div class="bar">${seg(h, 'home')}${seg(d, 'draw')}${seg(a, 'away')}</div></div>`;
+  }
+
+  function chip(adj) {
+    const cls = adj.kind === 'rest' ? 'chip rest' : 'chip';
+    const f = adj.kind === 'travel'
+      ? `×${fmt1(adj.away_factor)} away`
+      : `×${fmt1(adj.home_factor)}/${fmt1(adj.away_factor)}`;
+    return `<span class="${cls}">${adj.kind} · ${adj.detail} · ${f}</span>`;
+  }
+
+  const explainText = d => {
+    const o = OUTCOME[d.primary];
+    if (d.attribution === 'ratings')
+      return `On the ratings alone we're already ${fmt1(d.gap)}pt ${d.direction} than the market on ${o}. The adjustments barely move it (${fmt1(d.moved)}pt).`;
+    if (d.attribution === 'adjustments')
+      return `The ratings roughly agree with the market here — the ${fmt1(d.gap)}pt gap on ${o} is almost all from the referee/rest/travel/availability nudges (${fmt1(d.moved)}pt of movement).`;
+    return `Part ratings, part adjustment: the form numbers put us off the market on ${o}, and the nudges move it a further ${fmt1(d.moved)}pt.`;
+  };
+
+  const el = document.getElementById('fixtures');
+  if (!DATA.length) {
+    el.innerHTML = '<p class="empty">No fixtures at a 5-point gap in the current card.</p>';
+  }
+  for (const d of DATA) {
+    const card = document.createElement('div');
+    card.className = 'fixture';
+    const rl = (atk, def, n) => `atk ${atk != null ? atk.toFixed(2) : '–'} · def ${def != null ? def.toFixed(2) : '–'}${n ? ` · ${n} matches` : ''}`;
+    card.innerHTML = `
+      <div class="fx-top">
+        <div class="teams">${d.home}<span class="vs">v</span>${d.away}</div>
+        <div class="fx-meta num">${d.league} · ${fmtDate(d.date)}</div>
+      </div>
+      <p class="headline">We're ${fmt1(d.gap)}pt ${d.direction} than the market on ${OUTCOME[d.primary]}</p>
+      <div class="bars">
+        ${bar('Market', d.mHome, d.mDraw, d.mAway)}
+        ${bar('Ratings only', d.pureHome, d.pureDraw, d.pureAway)}
+        ${bar('Published', d.pHome, d.pDraw, d.pAway)}
+      </div>
+      <span class="attribution ${d.attribution}">${d.attribution === 'ratings' ? 'ratings-driven' : d.attribution === 'adjustments' ? 'adjustment-driven' : 'mixed'}</span>
+      <p class="explain">${explainText(d)}</p>
+      <div class="detail">
+        <div><span class="k">${d.home}</span><br><span class="rating-line">${rl(d.homeAtk, d.homeDef, d.homeMatches)}</span></div>
+        <div><span class="k">${d.away}</span><br><span class="rating-line">${rl(d.awayAtk, d.awayDef, d.awayMatches)}</span></div>
+        <div><span class="k">Expected goals</span><br><span class="num">${d.baseGoals[0]} – ${d.baseGoals[1]}${(d.finalGoals[0] !== d.baseGoals[0] || d.finalGoals[1] !== d.baseGoals[1]) ? ` &nbsp;→&nbsp; ${d.finalGoals[0]} – ${d.finalGoals[1]} after nudges` : ' (ratings only)'}</span></div>
+        <div><span class="k">Likely score · input stat</span><br><span class="num">${d.score} · ${d.stat}</span></div>
+      </div>
+      ${d.adjustments.length ? `<div class="chips">${d.adjustments.map(chip).join('')}</div>` : ''}`;
+    el.appendChild(card);
+  }
+</script>

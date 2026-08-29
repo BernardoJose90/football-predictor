@@ -1,4 +1,6 @@
-from scripts.render_why import build
+import pytest
+
+from scripts.render_why import TEMPLATE, build, render
 
 
 def _rec(gap_home=0.0, moved_home=0.0, **overrides):
@@ -51,3 +53,39 @@ def test_results_sorted_by_gap_descending():
     big = _rec(gap_home=0.20, home_team="Big", away_team="Gap")
     out = build([small, big], min_gap=0)
     assert [r["home"] for r in out] == ["Big", "Small"]
+
+
+def test_attribution_ratings_when_base_already_diverges():
+    # gap of 12pt, all of it present at base (no adjustment movement)
+    rec = _rec(gap_home=0.12, moved_home=0.0)
+    row = build([rec], min_gap=5)[0]
+    assert row["attribution"] == "ratings"
+    assert row["moved"] == 0.0
+
+
+def test_attribution_adjustments_when_movement_makes_the_gap():
+    # base agrees with market; the whole 10pt gap is adjustment movement
+    rec = _rec(gap_home=0.10, moved_home=0.10)
+    row = build([rec], min_gap=5)[0]
+    assert row["attribution"] == "adjustments"
+
+
+def test_render_injects_payload_and_removes_placeholders():
+    rec = _rec(gap_home=0.12)
+    html = render(build([rec], min_gap=5))
+    assert "__DATA_JSON__" not in html
+    assert "__GENERATED__" not in html
+    assert '"home":"Arsenal"' in html
+    assert "The Working" in html
+
+
+def test_render_fails_loudly_without_placeholder(tmp_path):
+    bad = tmp_path / "bad.html"
+    bad.write_text("<html>nope</html>")
+    with pytest.raises(RuntimeError):
+        render([], template=bad)
+
+
+def test_template_exists_and_has_placeholder():
+    assert TEMPLATE.exists()
+    assert "const DATA = __DATA_JSON__;" in TEMPLATE.read_text(encoding="utf-8")

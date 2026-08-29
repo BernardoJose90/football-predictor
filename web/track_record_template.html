@@ -1,0 +1,386 @@
+<title>The Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #eef0e8; --paper-raised: #f7f8f2; --ink: #14181d; --ink-soft: #454e46;
+    --ink-faint: #7a8279; --line: rgba(20,24,29,0.13); --line-strong: rgba(20,24,29,0.22);
+    --amber: #b9791c; --amber-ink: #6e4610;
+    --model: #2f7a52; --market: #a8461f; --elo: #6a3f7a;
+    --good: #2f7a52; --bad: #a8461f; --neutral: #7a8279;
+    --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
+      --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
+      --amber: #e3ac4c; --amber-ink: #f0c274;
+      --model: #4fa878; --market: #e07a4c; --elo: #a875b8;
+      --good: #4fa878; --bad: #e07a4c; --neutral: #767f77;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10141a; --paper-raised: #171c23; --ink: #e9ece4; --ink-soft: #b2b9ae;
+    --ink-faint: #767f77; --line: rgba(233,236,228,0.13); --line-strong: rgba(233,236,228,0.22);
+    --amber: #e3ac4c; --amber-ink: #f0c274;
+    --model: #4fa878; --market: #e07a4c; --elo: #a875b8;
+    --good: #4fa878; --bad: #e07a4c; --neutral: #767f77;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  a { color: var(--amber-ink); }
+
+  header { position: sticky; top: 0; z-index: 10; background: var(--paper);
+    border-bottom: 1px solid var(--line); padding: 0.9rem 1.5rem 0; }
+  .header-top { display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; max-width: 960px; margin: 0 auto; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber-ink); margin: 0 0 0.15rem; }
+  h1 { font-family: "Big Shoulders Display", sans-serif; font-weight: 800;
+    font-size: clamp(2.1rem, 5vw, 3.1rem); text-transform: uppercase; margin: 0; line-height: 0.92; }
+  .generated { font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--ink-faint); }
+  nav.site { max-width: 960px; margin: 0.75rem auto 0; display: flex; gap: 0.4rem;
+    overflow-x: auto; padding-bottom: 0.7rem; }
+  nav.site a { flex: none; font-family: "IBM Plex Mono", monospace; font-size: 0.75rem;
+    text-decoration: none; color: var(--ink-soft); border: 1px solid var(--line-strong);
+    border-radius: 100px; padding: 0.3rem 0.8rem; white-space: nowrap; }
+  nav.site a[aria-current="page"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+  nav.site a:hover { border-color: var(--amber); }
+
+  main { max-width: 960px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+  section { margin-bottom: 3rem; }
+  .sec-head { display: flex; align-items: baseline; gap: 0.6rem; border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.35rem; margin-bottom: 1rem; }
+  .sec-head h2 { font-family: "Big Shoulders Display", sans-serif; font-weight: 700; font-size: 1.6rem;
+    text-transform: uppercase; margin: 0; }
+  .sec-head .sub { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: var(--ink-faint); }
+  .lede { font-size: 0.95rem; color: var(--ink-soft); max-width: 66ch; margin: 0 0 1.2rem; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    margin-bottom: 1.5rem; }
+  .tile { background: var(--paper-raised); padding: 0.85rem 1rem; }
+  .tile .n { font-family: "Big Shoulders Display", sans-serif; font-weight: 700; font-size: 1.7rem;
+    line-height: 1; display: block; }
+  .tile .l { font-size: 0.7rem; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: 0.05em; margin-top: 0.3rem; display: block; }
+  .tile .sub2 { font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.15rem; display: block; }
+
+  .panel { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px;
+    padding: 1rem 1.15rem; box-shadow: var(--shadow); margin-bottom: 1.25rem; }
+  .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-faint); margin: 0 0 0.75rem; }
+  .chart-wrap { overflow-x: auto; }
+  svg.chart { display: block; max-width: 100%; height: auto; }
+  .legend { display: flex; gap: 1rem; font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.5rem; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .dot { width: 0.6rem; height: 0.6rem; border-radius: 2px; display: inline-block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); }
+  th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  .verdict { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; padding: 0.1rem 0.45rem; border-radius: 5px; }
+  .verdict.good { color: var(--good); background: rgba(47,122,82,0.13); }
+  .verdict.bad { color: var(--bad); background: rgba(168,70,31,0.13); }
+  .verdict.neutral { color: var(--neutral); background: var(--line); }
+  .called-y { color: var(--good); } .called-n { color: var(--ink-faint); }
+
+  .note { font-size: 0.85rem; color: var(--ink-soft); background: var(--line); border-radius: 8px;
+    padding: 0.75rem 1rem; margin-bottom: 1.25rem; }
+
+  footer { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; color: var(--ink-faint);
+    font-size: 0.82rem; border-top: 1px solid var(--line); }
+  footer p { max-width: 68ch; }
+
+  @media (max-width: 560px) { .scroll-x { overflow-x: auto; } }
+</style>
+
+<header>
+  <div class="header-top">
+    <div>
+      <p class="eyebrow">What we said · what happened</p>
+      <h1>The Ledger</h1>
+    </div>
+    <div class="generated">__GENERATED__</div>
+  </div>
+  <nav class="site">
+    <a href="./index.html">Weekend Coupon</a>
+    <a href="./why.html">The Working</a>
+    <a href="./track-record.html" aria-current="page">The Ledger</a>
+  </nav>
+</header>
+
+<main>
+  <p class="lede">
+    Two kinds of evidence, kept apart. The <strong>live record</strong> is every
+    prediction the site actually published, scored against the result once it's
+    in — first prediction per fixture, never restated with hindsight. It starts
+    near-empty and fills one matchday at a time. The <strong>validation
+    backtest</strong> is the same model run walk-forward over three seasons of
+    history at its current settings — thousands of matches of context that
+    doesn't depend on how long the live log has been running.
+  </p>
+
+  <section id="live">
+    <div class="sec-head"><h2>Live record</h2><span class="sub" id="live-span"></span></div>
+    <div id="live-body"></div>
+  </section>
+
+  <section id="validation">
+    <div class="sec-head"><h2>Validation backtest</h2><span class="sub" id="val-window"></span></div>
+    <div id="val-body"></div>
+  </section>
+</main>
+
+<footer>
+  <p>
+    <strong style="color:var(--ink)">Not a betting recommendation.</strong> RPS is
+    the ranked probability score (Constantinou &amp; Fenton 2012); lower is better,
+    the published band for football is roughly 0.184–0.213. "Market" is the
+    fixture's pre-match price with the bookmaker's margin removed. Significance is
+    a paired Diebold-Mariano test on the per-match RPS difference. The scoreline
+    row is scored on the model's single most-likely score, which is a by-product
+    of the grid, not its main output — exact-score accuracy tops out near 12% for
+    anyone, so the "always 1-1" baseline is shown next to it. Full method in the
+    project README.
+  </p>
+</footer>
+
+<script>
+  const DATA = __DATA_JSON__;
+
+  const f2 = n => (n == null || isNaN(n)) ? '–' : n.toFixed(2);
+  const f3 = n => (n == null || isNaN(n)) ? '–' : n.toFixed(3);
+  const f4 = n => (n == null || isNaN(n)) ? '–' : n.toFixed(4);
+  const pct = n => (n == null || isNaN(n)) ? '–' : (n * 100).toFixed(1) + '%';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  // ---------- SVG charts ----------
+  function lineChart(seriesList, opts) {
+    // seriesList: [{name, colour, points: [{x, y}]}], x numeric, y numeric
+    const W = opts.width || 860, H = opts.height || 240;
+    const m = { t: 12, r: 12, b: 28, l: 44 };
+    const xs = seriesList.flatMap(s => s.points.map(p => p.x));
+    const ys = seriesList.flatMap(s => s.points.map(p => p.y));
+    if (!ys.length) return '<p class="sub">no data yet</p>';
+    const xmin = Math.min(...xs), xmax = Math.max(...xs, xmin + 1);
+    let ymin = opts.ymin != null ? opts.ymin : Math.min(...ys);
+    let ymax = opts.ymax != null ? opts.ymax : Math.max(...ys);
+    if (ymin === ymax) { ymin -= 0.01; ymax += 0.01; }
+    const px = x => m.l + (x - xmin) / (xmax - xmin) * (W - m.l - m.r);
+    const py = y => H - m.b - (y - ymin) / (ymax - ymin) * (H - m.t - m.b);
+    const yticks = 4;
+    let g = '';
+    for (let i = 0; i <= yticks; i++) {
+      const yv = ymin + (ymax - ymin) * i / yticks;
+      const y = py(yv);
+      g += `<line x1="${m.l}" y1="${y}" x2="${W - m.r}" y2="${y}" stroke="var(--line)" />`;
+      g += `<text x="${m.l - 6}" y="${y + 3}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${yv.toFixed(3)}</text>`;
+    }
+    g += `<text x="${m.l}" y="${H - 8}" font-size="10" fill="var(--ink-faint)">${esc(opts.xlabelLeft || '')}</text>`;
+    g += `<text x="${W - m.r}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${esc(opts.xlabelRight || '')}</text>`;
+    for (const s of seriesList) {
+      if (!s.points.length) continue;
+      const d = s.points.map((p, i) => `${i ? 'L' : 'M'}${px(p.x).toFixed(1)},${py(p.y).toFixed(1)}`).join('');
+      g += `<path d="${d}" fill="none" stroke="${s.colour}" stroke-width="2" />`;
+    }
+    return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${g}</svg></div>`;
+  }
+
+  function calibChart(seriesList) {
+    // seriesList: [{name, colour, points:[{predicted, observed, n}]}]
+    const W = 420, H = 420, m = 40;
+    const px = v => m + v * (W - 2 * m);
+    const py = v => H - m - v * (H - 2 * m);
+    let g = `<rect x="${m}" y="${m}" width="${W - 2 * m}" height="${H - 2 * m}" fill="none" stroke="var(--line)" />`;
+    g += `<line x1="${px(0)}" y1="${py(0)}" x2="${px(1)}" y2="${py(1)}" stroke="var(--ink-faint)" stroke-dasharray="4 3" />`;
+    for (let t = 0; t <= 1.0001; t += 0.25) {
+      g += `<text x="${px(t)}" y="${H - m + 14}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">${t.toFixed(2)}</text>`;
+      g += `<text x="${m - 8}" y="${py(t) + 3}" text-anchor="end" font-size="10" fill="var(--ink-faint)">${t.toFixed(2)}</text>`;
+    }
+    g += `<text x="${W / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--ink-faint)">predicted probability</text>`;
+    g += `<text x="12" y="${H / 2}" text-anchor="middle" font-size="10" fill="var(--ink-faint)" transform="rotate(-90 12 ${H / 2})">observed frequency</text>`;
+    for (const s of seriesList) {
+      const pts = s.points.filter(p => p.n > 0);
+      if (pts.length > 1) {
+        const d = pts.map((p, i) => `${i ? 'L' : 'M'}${px(p.predicted).toFixed(1)},${py(p.observed).toFixed(1)}`).join('');
+        g += `<path d="${d}" fill="none" stroke="${s.colour}" stroke-width="1.5" opacity="0.7" />`;
+      }
+      for (const p of pts) {
+        const r = Math.max(2.5, Math.min(9, Math.sqrt(p.n)));
+        g += `<circle cx="${px(p.predicted).toFixed(1)}" cy="${py(p.observed).toFixed(1)}" r="${r.toFixed(1)}" fill="${s.colour}" opacity="0.7" />`;
+      }
+    }
+    return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" style="max-width:420px" role="img">${g}</svg></div>`;
+  }
+
+  function tile(n, l, sub2) {
+    return `<div class="tile"><span class="n num">${n}</span><span class="l">${l}</span>${sub2 ? `<span class="sub2">${sub2}</span>` : ''}</div>`;
+  }
+  function legend(items) {
+    return `<div class="legend">${items.map(i => `<span><span class="dot" style="background:${i.c}"></span>${i.t}</span>`).join('')}</div>`;
+  }
+
+  // ================= LIVE =================
+  (function () {
+    const L = DATA.live;
+    document.getElementById('live-span').textContent =
+      L.span ? `${L.span[0]} → ${L.span[1]}` : 'nothing resolved yet';
+    const body = document.getElementById('live-body');
+
+    if (!L.n_scored) {
+      body.innerHTML = `<div class="note">The live record opens with the next matchday.
+        <strong>${L.n_logged}</strong> prediction${L.n_logged === 1 ? '' : 's'} logged so far,
+        all still pending. Numbers appear here as fixtures finish.</div>
+        <div class="tiles">${tile(L.n_logged, 'Logged')}${tile(L.n_pending, 'Pending')}${tile(L.n_with_market, 'With market price')}</div>`;
+      return;
+    }
+
+    const m = L.model, mk = L.market, mms = L.model_on_market_set;
+    let html = `<div class="tiles">
+      ${tile(L.n_scored, 'Scored')}
+      ${tile(L.n_pending, 'Pending')}
+      ${tile(f4(m.rps), 'Model RPS', `hit rate ${pct(m.hit_rate)}`)}
+      ${mk ? tile(f4(mk.rps), 'Market RPS', `same ${mms.n} fixtures: model ${f4(mms.rps)}`) : ''}
+      ${L.scoreline ? tile(pct(L.scoreline.exact), 'Exact scoreline', `1-1 baseline ${pct(L.scoreline.baseline_always_1_1)}`) : ''}
+    </div>`;
+
+    if (L.cumulative && L.cumulative.length > 1) {
+      const mSeries = { colour: 'var(--model)', points: L.cumulative.map(c => ({ x: c.n, y: c.model })) };
+      const kSeries = { colour: 'var(--market)', points: L.cumulative.filter(c => c.market != null).map(c => ({ x: c.n, y: c.market })) };
+      html += `<div class="panel"><h3>Cumulative RPS as fixtures resolved</h3>
+        ${lineChart([mSeries, kSeries], { xlabelLeft: 'first', xlabelRight: `${L.cumulative.length} scored` })}
+        ${legend([{ c: 'var(--model)', t: 'model' }, { c: 'var(--market)', t: 'market' }])}</div>`;
+    }
+
+    if (L.calibration && L.calibration.some(b => b.n > 0)) {
+      html += `<div class="panel"><h3>Calibration — predicted vs actual, all outcomes pooled</h3>
+        ${calibChart([{ colour: 'var(--model)', points: L.calibration }])}
+        <p class="sub" style="font-size:0.72rem;color:var(--ink-faint)">dot size ∝ number of forecasts in the bin; on the dashed line = perfectly calibrated</p></div>`;
+    }
+
+    if (L.scoreline) {
+      const s = L.scoreline;
+      html += `<div class="panel"><h3>Scoreline scorecard (n=${s.n})</h3>
+        <table><tbody>
+        <tr><td>Exact scoreline</td><td class="num">${pct(s.exact)}</td><td class="sub">vs ${pct(s.baseline_always_1_1)} always guessing 1-1</td></tr>
+        <tr><td>Right goal margin</td><td class="num">${pct(s.goal_diff)}</td><td></td></tr>
+        <tr><td>Result + within 1 goal each side</td><td class="num">${pct(s.result_and_within_1)}</td><td></td></tr>
+        </tbody></table></div>`;
+    }
+
+    if (L.by_league && L.by_league.length) {
+      html += `<div class="panel"><h3>By league</h3><div class="scroll-x"><table>
+        <thead><tr><th>League</th><th class="num">n</th><th class="num">RPS</th><th class="num">Hit rate</th></tr></thead><tbody>
+        ${L.by_league.map(r => `<tr><td>${esc(r.league)}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td><td class="num">${pct(r.hit_rate)}</td></tr>`).join('')}
+        </tbody></table></div></div>`;
+    }
+
+    if (L.fixtures && L.fixtures.length) {
+      html += `<div class="panel"><h3>What we said · what happened (${L.fixtures.length})</h3><div class="scroll-x"><table>
+        <thead><tr><th>Date</th><th>Fixture</th><th>Model H/D/A</th><th>Market</th><th>Score</th><th class="num">RPS</th><th>Called</th></tr></thead><tbody>
+        ${L.fixtures.map(x => `<tr>
+          <td class="num">${esc(x.date)}</td>
+          <td>${esc(x.home)} v ${esc(x.away)}</td>
+          <td class="num">${x.model.map(v => v.toFixed(0)).join(' / ')}</td>
+          <td class="num">${x.market ? x.market.map(v => v.toFixed(0)).join(' / ') : '–'}</td>
+          <td class="num">${esc(x.score || '')} <span class="sub">(${esc(x.result)})</span>${x.scoreline_exact ? ' ✓' : ''}</td>
+          <td class="num">${f3(x.model_rps)}</td>
+          <td class="${x.model_called ? 'called-y' : 'called-n'}">${x.model_called ? '✓' : '·'}</td>
+        </tr>`).join('')}
+        </tbody></table></div></div>`;
+    }
+    body.innerHTML = html;
+  })();
+
+  // ================= VALIDATION =================
+  (function () {
+    const V = DATA.validation;
+    if (!V || !V.headline) { document.getElementById('val-body').innerHTML = '<p class="sub">not available</p>'; return; }
+    document.getElementById('val-window').textContent = `${V.window.start} → ${V.window.end} · ${V.headline.model_n} fixtures`;
+    const h = V.headline;
+    const sig = V.significance || {};
+
+    const verdict = (s, betterIsModel) => {
+      if (!s) return '<span class="verdict neutral">n/a</span>';
+      const real = s.p_value < 0.05;
+      if (!real) return `<span class="verdict neutral">level (p=${s.p_value.toFixed(2)})</span>`;
+      const modelBetter = s.mean_diff < 0;
+      return `<span class="verdict ${modelBetter ? 'good' : 'bad'}">${modelBetter ? 'model ahead' : 'model behind'} (p&lt;0.001)</span>`;
+    };
+
+    let html = `<div class="tiles">
+      ${tile(f4(h.model_rps), 'Model RPS', `log loss ${f3(h.model_log_loss)}`)}
+      ${tile(f4(h.devig_rps), 'Market RPS', `gap ${h.gap_to_market > 0 ? '+' : ''}${f4(h.gap_to_market)}`)}
+      ${tile(f4(h.elo_rps), 'Elo RPS')}
+      ${tile(pct(h.coverage), 'Coverage')}
+      ${tile(f4(h.calibration_error), 'Calibration err', 'P(home win)')}
+    </div>`;
+
+    html += `<div class="panel"><h3>Is the difference real? (paired Diebold-Mariano)</h3>
+      <table><tbody>
+      <tr><td>Model vs market</td><td class="num">ΔRPS ${sig.market ? (sig.market.mean_diff > 0 ? '+' : '') + f4(sig.market.mean_diff) : '–'}</td><td>${verdict(sig.market)}</td></tr>
+      <tr><td>Model vs Elo</td><td class="num">ΔRPS ${sig.elo ? (sig.elo.mean_diff > 0 ? '+' : '') + f4(sig.elo.mean_diff) : '–'}</td><td>${verdict(sig.elo)}</td></tr>
+      </tbody></table>
+      <p class="sub" style="font-size:0.75rem;color:var(--ink-faint);margin-top:0.5rem">Negative ΔRPS = model better. "Level" = the gap is within noise.</p></div>`;
+
+    if (V.brier) {
+      const b = V.brier;
+      html += `<div class="panel"><h3>Brier score decomposition (Murphy)</h3>
+        <table><tbody>
+        <tr><td>Multiclass Brier</td><td class="num">${f3(b.brier)}</td><td class="sub">lower better</td></tr>
+        <tr><td>Reliability (calibration)</td><td class="num">${f4(b.reliability)}</td><td class="sub">→ 0 is perfect</td></tr>
+        <tr><td>Resolution (information)</td><td class="num">${f4(b.resolution)}</td><td class="sub">higher better</td></tr>
+        <tr><td>Uncertainty (data)</td><td class="num">${f3(b.uncertainty)}</td><td class="sub">fixed for this sample</td></tr>
+        ${V.sharpness ? `<tr><td>Sharpness (entropy)</td><td class="num">${f3(V.sharpness.entropy)}</td><td class="sub">1.099 = flat 33/33/33</td></tr>` : ''}
+        </tbody></table></div>`;
+    }
+
+    const mo = V.monthly || {};
+    if (mo.model && mo.model.length) {
+      const toPts = arr => arr.map((r, i) => ({ x: i, y: r.running }));
+      const series = [
+        { colour: 'var(--model)', points: toPts(mo.model) },
+        { colour: 'var(--market)', points: toPts(mo.devig || []) },
+        { colour: 'var(--elo)', points: toPts(mo.elo || []) },
+      ].filter(s => s.points.length);
+      html += `<div class="panel"><h3>Running RPS by month</h3>
+        ${lineChart(series, { xlabelLeft: mo.model[0].month, xlabelRight: mo.model[mo.model.length - 1].month })}
+        ${legend([{ c: 'var(--model)', t: 'model' }, { c: 'var(--market)', t: 'market' }, { c: 'var(--elo)', t: 'Elo' }])}</div>`;
+    }
+
+    if (V.calibration && V.calibration.home) {
+      html += `<div class="panel"><h3>Calibration by outcome</h3>
+        ${calibChart([
+          { colour: 'var(--model)', points: V.calibration.home },
+          { colour: 'var(--market)', points: V.calibration.draw },
+          { colour: 'var(--elo)', points: V.calibration.away },
+        ])}
+        ${legend([{ c: 'var(--model)', t: 'home win' }, { c: 'var(--market)', t: 'draw' }, { c: 'var(--elo)', t: 'away win' }])}</div>`;
+    }
+
+    if (V.by_season && V.by_season.length) {
+      html += `<div class="panel"><h3>By season</h3><table>
+        <thead><tr><th>Season</th><th class="num">n</th><th class="num">RPS</th></tr></thead><tbody>
+        ${V.by_season.map(r => `<tr><td class="num">${esc(r.season)}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td></tr>`).join('')}
+        </tbody></table></div>`;
+    }
+
+    if (V.leagues && V.leagues.length) {
+      html += `<div class="panel"><h3>By league</h3><div class="scroll-x"><table>
+        <thead><tr><th>League</th><th class="num">n</th><th class="num">RPS</th></tr></thead><tbody>
+        ${V.leagues.map(r => `<tr><td>${esc(r.league)}</td><td class="num">${r.n}</td><td class="num">${f4(r.rps)}</td></tr>`).join('')}
+        </tbody></table></div></div>`;
+    }
+
+    document.getElementById('val-body').innerHTML = html;
+  })();
+</script>

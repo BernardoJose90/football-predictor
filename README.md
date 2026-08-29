@@ -246,15 +246,17 @@ runs it Thursday and Saturday mornings (UTC) and commits the regenerated page
 and log - the one script both CI and a local run go through, so they can
 never drift apart.
 
-**The Working** (`scripts/render_why.py`). For fixtures where the model and
-the market disagree by 5+ points, splits the gap in two: `base_p_*` is the
-same fixture priced with every section-10.1 adjustment turned off (plain
-ratings + Dixon-Coles), `p_*` is what actually shipped. A big gap with little
-movement between the two means the *core ratings* disagree with the market;
-a gap that mostly closes at `base_p_*` means the *adjustments* (referee,
-rest, travel, injuries) are doing the disagreeing. Reads the rich per-fixture
-JSON `predict_upcoming` always writes next to its CSV - nothing is
-recomputed.
+**The Working** (`scripts/render_why.py` -> `docs/why.html` via
+`web/why_template.html`, plus `artefacts/why.json`). For fixtures where the
+model and the market disagree by 5+ points, splits the gap in two: `base_p_*`
+is the same fixture priced with every section-10.1 adjustment turned off
+(plain ratings + Dixon-Coles), `p_*` is what actually shipped. A big gap with
+little movement between the two means the *core ratings* disagree with the
+market; a gap that mostly closes at `base_p_*` means the *adjustments*
+(referee, rest, travel, injuries) are doing the disagreeing - the page labels
+each fixture "ratings-driven" / "adjustment-driven" / "mixed" and shows the
+attack/defence numbers behind it. Reads the rich per-fixture JSON
+`predict_upcoming` always writes next to its CSV - nothing is recomputed.
 
 **The Ledger** (`evaluate/prediction_log.py` + `evaluate/track_record.py` +
 `scripts/track_record.py`). Two kinds of evidence, kept separate:
@@ -275,14 +277,20 @@ recomputed.
 - *Validation*: the same walk-forward backtest as the Evaluation section
   below, run with the model's current production config, shown alongside the
   live numbers as long-run evidence that doesn't depend on how many weeks the
-  live log has been running.
+  live log has been running. Carries the extended battery too - Brier/Murphy
+  decomposition, sharpness, per-season RPS, and the paired Diebold-Mariano
+  significance tests.
 
-`scripts/track_record.py` produces one JSON with both. None of these three
-pages auto-publish themselves the way the Weekend Coupon does - they're
-Claude Artifacts, which (unlike GitHub Pages) can only be republished from a
-live Claude session, not driven by a cron job - so refreshing them is a
-manual `python -m scripts.render_why` / `python -m scripts.track_record` plus
-a re-publish.
+`scripts/track_record.py` produces one JSON (`artefacts/track_record.json`)
+with both, and renders `docs/track-record.html` from
+`web/track_record_template.html` (inline-SVG cumulative-RPS and calibration
+charts, no chart library). **All three pages now auto-publish**: the same
+`.github/workflows/weekly-predictions.yml` run renders the coupon, the
+explainer and the track record and commits all three (`docs/index.html`,
+`docs/why.html`, `docs/track-record.html`) plus the prediction log. They're a
+single GitHub Pages site with a shared nav - `/`, `/why.html`,
+`/track-record.html`. Running any of the three scripts locally regenerates
+its page the same way CI does.
 
 ## Evaluation
 
@@ -363,10 +371,11 @@ evaluate/
 scripts/
   build_dataset.py, run_backtest.py, run_tune.py, predict_upcoming.py    entry points
   render_coupon.py       predict_upcoming -> docs/index.html (GitHub Pages), always logs
-  render_why.py           model-vs-market gap explainer, from predict_upcoming's own JSON
-  track_record.py         live log + walk-forward validation -> one JSON for the track-record page
-web/coupon_template.html  static HTML/JS template render_coupon.py fills in
-.github/workflows/weekly-predictions.yml   Thu/Sat cron + manual dispatch for render_coupon.py
+  render_why.py           model-vs-market gap explainer -> docs/why.html + artefacts/why.json
+  track_record.py         live log + walk-forward validation -> docs/track-record.html + JSON
+web/coupon_template.html, why_template.html, track_record_template.html   static HTML/JS
+    templates the three render_* scripts fill in (shared design + cross-page nav)
+.github/workflows/weekly-predictions.yml   Thu/Sat cron: renders + commits all three pages
 tests/                 tests incl. leakage-guard tests for ratings, referee, rest, travel
 data/raw/, data/processed/, artefacts/   artefacts/prediction_log.csv is the one artefact tracked in git
 ```
