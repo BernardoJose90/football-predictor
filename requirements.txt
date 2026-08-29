@@ -1,0 +1,16 @@
+pandas>=3.0
+numpy>=2.5
+scipy>=1.18
+matplotlib>=3.11
+requests>=2.34
+python-dotenv>=1.2
+PyYAML>=6.0
+pyarrow>=25.0
+pytest>=9.1
+
+# for --stat xg / python -m ingest.understat (5/8 leagues, see README Milestone 4)
+soccerdata
+
+# for python -m ingest.squad_value (Transfermarkt scrape) - lxml is what
+# pandas.read_html actually needs to parse the fetched pages
+lxml

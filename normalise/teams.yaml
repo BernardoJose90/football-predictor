@@ -1,0 +1,221 @@
+# canonical name -> list of alternative spellings.
+# Hand-maintained. build_aliases.py only appends new canonical entries.
+AVS: []
+Aberdeen: []
+Academico Viseu: []
+Alaves: []
+Almeria: []
+Alverca: []
+Angers: []
+Arouca: []
+Arsenal: []
+Aston Villa: []
+Atalanta: []
+Ath Bilbao:
+- Athletic Club
+Ath Madrid:
+- Atletico Madrid
+Augsburg: []
+Auxerre: []
+Barcelona: []
+Bayern Munich: []
+Benfica: []
+Betis:
+- Real Betis
+Birmingham: []
+Blackburn: []
+Boavista: []
+Bochum: []
+Bologna: []
+Bolton: []
+Bournemouth: []
+Brentford: []
+Brest: []
+Brighton: []
+Bristol City: []
+Burnley: []
+Cadiz: []
+Cagliari: []
+Cardiff: []
+Casa Pia: []
+Celta:
+- Celta Vigo
+Celtic: []
+Charlton: []
+Chaves: []
+Chelsea: []
+Clermont:
+- Clermont Foot
+Como: []
+Coventry: []
+Cremonese: []
+Crystal Palace: []
+Darmstadt: []
+Derby: []
+Dortmund:
+- Borussia Dortmund
+Dundee: []
+Dundee United: []
+Ein Frankfurt:
+- Eintracht Frankfurt
+Elche: []
+Empoli: []
+Espanol:
+- Espanyol
+Estoril: []
+Estrela: []
+Everton: []
+FC Koln:
+- FC Cologne
+Falkirk: []
+Famalicao: []
+Farense: []
+Fiorentina: []
+Freiburg: []
+Frosinone: []
+Fulham: []
+Genoa: []
+Getafe: []
+Gil Vicente: []
+Girona: []
+Granada: []
+Guimaraes: []
+Hamburg:
+- Hamburger SV
+Hearts: []
+Heidenheim:
+- FC Heidenheim
+Hibernian: []
+Hoffenheim: []
+Holstein Kiel: []
+Huddersfield: []
+Hull: []
+Inter: []
+Ipswich: []
+Juventus: []
+Kilmarnock: []
+La Coruna: []
+Las Palmas: []
+Lazio: []
+Le Havre: []
+Le Mans: []
+Lecce: []
+Leeds: []
+Leganes: []
+Leicester: []
+Lens: []
+Levante: []
+Leverkusen:
+- Bayer Leverkusen
+Lille: []
+Lincoln: []
+Liverpool: []
+Livingston: []
+Lorient: []
+Luton: []
+Lyon: []
+M'gladbach:
+- Borussia M.Gladbach
+Mainz:
+- Mainz 05
+Malaga: []
+Mallorca: []
+Man City:
+- Manchester City
+Man United:
+- Manchester United
+Maritimo: []
+Marseille: []
+Metz: []
+Middlesbrough: []
+Milan:
+- AC Milan
+Millwall: []
+Monaco: []
+Montpellier: []
+Monza: []
+Moreirense: []
+Motherwell: []
+Nacional: []
+Nantes: []
+Napoli: []
+Newcastle:
+- Newcastle United
+Nice: []
+Norwich: []
+Nott'm Forest:
+- Nottingham Forest
+Osasuna: []
+Oviedo:
+- Real Oviedo
+Oxford: []
+Paris FC: []
+Paris SG:
+- Paris Saint Germain
+Parma:
+- Parma Calcio 1913
+Pisa: []
+Plymouth: []
+Portimonense: []
+Porto: []
+Portsmouth: []
+Preston: []
+QPR: []
+RB Leipzig:
+- RasenBallsport Leipzig
+Rangers: []
+Real Madrid: []
+Reims: []
+Rennes: []
+Rio Ave: []
+Roma: []
+Ross County: []
+Rotherham: []
+Salernitana: []
+Santa Clara: []
+Santander: []
+Sassuolo: []
+Sevilla: []
+Sheffield United: []
+Sheffield Weds: []
+Sociedad:
+- Real Sociedad
+Southampton: []
+Sp Braga: []
+Sp Lisbon: []
+St Etienne:
+- Saint-Etienne
+St Johnstone: []
+St Mirren: []
+St Pauli:
+- St. Pauli
+Stoke: []
+Strasbourg: []
+Stuttgart:
+- VfB Stuttgart
+Sunderland: []
+Swansea: []
+Tondela: []
+Torino: []
+Tottenham: []
+Toulouse: []
+Troyes: []
+Udinese: []
+Union Berlin: []
+Valencia: []
+Valladolid:
+- Real Valladolid
+Vallecano:
+- Rayo Vallecano
+Venezia: []
+Verona: []
+Villarreal: []
+Vizela: []
+Watford: []
+Werder Bremen: []
+West Brom: []
+West Ham: []
+Wolfsburg: []
+Wolves:
+- Wolverhampton Wanderers
+Wrexham: []

@@ -1,0 +1,479 @@
+<title>Weekend Coupon</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #eef0e8;
+    --paper-raised: #f7f8f2;
+    --ink: #14181d;
+    --ink-soft: #454e46;
+    --ink-faint: #7a8279;
+    --line: rgba(20,24,29,0.13);
+    --line-strong: rgba(20,24,29,0.22);
+    --amber: #b9791c;
+    --amber-ink: #6e4610;
+    --home: #2f7a52;
+    --home-bg: rgba(47,122,82,0.14);
+    --draw: #93762f;
+    --draw-bg: rgba(147,118,47,0.14);
+    --away: #6a3f7a;
+    --away-bg: rgba(106,63,122,0.14);
+    --gap-flag: #a8461f;
+    --gap-flag-bg: rgba(168,70,31,0.13);
+    --shadow: 0 1px 2px rgba(20,24,29,0.06), 0 8px 24px -12px rgba(20,24,29,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10141a;
+      --paper-raised: #171c23;
+      --ink: #e9ece4;
+      --ink-soft: #b2b9ae;
+      --ink-faint: #767f77;
+      --line: rgba(233,236,228,0.13);
+      --line-strong: rgba(233,236,228,0.22);
+      --amber: #e3ac4c;
+      --amber-ink: #f0c274;
+      --home: #4fa878;
+      --home-bg: rgba(79,168,120,0.16);
+      --draw: #c7a565;
+      --draw-bg: rgba(199,165,101,0.16);
+      --away: #a875b8;
+      --away-bg: rgba(168,117,184,0.18);
+      --gap-flag: #e07a4c;
+      --gap-flag-bg: rgba(224,122,76,0.16);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10141a;
+    --paper-raised: #171c23;
+    --ink: #e9ece4;
+    --ink-soft: #b2b9ae;
+    --ink-faint: #767f77;
+    --line: rgba(233,236,228,0.13);
+    --line-strong: rgba(233,236,228,0.22);
+    --amber: #e3ac4c;
+    --amber-ink: #f0c274;
+    --home: #4fa878;
+    --home-bg: rgba(79,168,120,0.16);
+    --draw: #c7a565;
+    --draw-bg: rgba(199,165,101,0.16);
+    --away: #a875b8;
+    --away-bg: rgba(168,117,184,0.18);
+    --gap-flag: #e07a4c;
+    --gap-flag-bg: rgba(224,122,76,0.16);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  a { color: var(--amber-ink); }
+
+  /* ---- header ---- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    padding: 0.9rem 1.5rem 0;
+  }
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber-ink);
+    margin: 0 0 0.15rem;
+  }
+  h1 {
+    font-family: "Big Shoulders Display", sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.1rem, 5vw, 3.1rem);
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+    margin: 0;
+    line-height: 0.92;
+    text-wrap: balance;
+  }
+  .date-range {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  nav.leagues {
+    max-width: 920px;
+    margin: 0.75rem auto 0;
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+    scrollbar-width: thin;
+  }
+  nav.leagues a {
+    flex: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 100px;
+    padding: 0.3rem 0.75rem;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  nav.leagues a:hover, nav.leagues a:focus-visible {
+    color: var(--ink);
+    border-color: var(--amber);
+    background: var(--paper-raised);
+  }
+
+  main { max-width: 920px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+
+  /* ---- intro ---- */
+  .intro {
+    font-size: 0.98rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 1.5rem;
+  }
+  .intro strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- stat strip ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 2.25rem;
+  }
+  .stat {
+    background: var(--paper-raised);
+    padding: 0.85rem 1rem;
+  }
+  .stat .n {
+    font-family: "Big Shoulders Display", sans-serif;
+    font-weight: 700;
+    font-size: 1.85rem;
+    line-height: 1;
+    display: block;
+  }
+  .stat .l {
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 0.3rem;
+    display: block;
+  }
+
+  /* ---- league sections ---- */
+  section.league { margin-bottom: 2.5rem; scroll-margin-top: 6.5rem; }
+  .league-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.9rem;
+  }
+  .league-head h2 {
+    font-family: "Big Shoulders Display", sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .league-head .count {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+  }
+
+  .fixtures { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .fixture {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    box-shadow: var(--shadow);
+  }
+  .fixture-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.55rem;
+    flex-wrap: wrap;
+  }
+  .teams { font-weight: 500; font-size: 0.98rem; }
+  .teams .vs { color: var(--ink-faint); font-weight: 400; margin: 0 0.35rem; font-size: 0.85em; }
+  .meta { display: flex; align-items: baseline; gap: 0.6rem; }
+  .kickoff { font-size: 0.78rem; color: var(--ink-faint); white-space: nowrap; }
+  .score-pill {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-strong);
+    border-radius: 5px;
+    padding: 0.08rem 0.4rem;
+  }
+  .gap-badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    color: var(--gap-flag);
+    background: var(--gap-flag-bg);
+    border-radius: 5px;
+    padding: 0.1rem 0.42rem;
+    white-space: nowrap;
+  }
+
+  .prob-row { display: grid; grid-template-columns: 3.6rem 1fr; gap: 0.55rem; align-items: center; margin-top: 0.3rem; }
+  .prob-row:first-of-type { margin-top: 0; }
+  .prob-label { font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); }
+  .bar { display: flex; height: 1.15rem; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .bar.market { height: 0.65rem; opacity: 0.82; }
+  .seg { display: flex; align-items: center; justify-content: center; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; color: var(--paper); white-space: nowrap; overflow: hidden; }
+  .seg.home { background: var(--home); }
+  .seg.draw { background: var(--draw); }
+  .seg.away { background: var(--away); }
+  .bar.market .seg { font-size: 0; }
+
+  .legend-inline { display: flex; gap: 0.9rem; font-size: 0.72rem; color: var(--ink-faint); margin-top: 0.45rem; flex-wrap: wrap; }
+  .legend-inline span { display: inline-flex; align-items: center; gap: 0.3rem; }
+  .swatch { width: 0.6rem; height: 0.6rem; border-radius: 2px; display: inline-block; }
+  .adj-note { font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; color: var(--amber-ink); margin-top: 0.4rem; }
+
+  .fixture.unrated { opacity: 0.72; padding: 0.55rem 1rem; }
+  .fixture.unrated .fixture-top { margin-bottom: 0; }
+  .unrated-note { font-size: 0.78rem; color: var(--ink-faint); font-style: italic; }
+
+  footer {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+    color: var(--ink-faint);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+  }
+  footer p { max-width: 66ch; }
+
+  @media (max-width: 560px) {
+    .prob-row { grid-template-columns: 3.1rem 1fr; }
+    .fixture-top { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    nav.leagues a, .fixture { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  }
+</style>
+
+<header>
+  <div class="header-top">
+    <div>
+      <p class="eyebrow">Model vs. market · walk-forward Poisson</p>
+      <h1>Weekend Coupon</h1>
+    </div>
+    <div class="date-range num" id="date-range">28–31 Aug 2026</div>
+  </div>
+  <nav class="leagues" id="league-nav" aria-label="Jump to league"></nav>
+</header>
+
+<main>
+  <p class="intro">
+    Every fixture below got two forecasts: <strong>ours</strong>, built from each team's
+    recent attack and defence (expected goals where available, shots on target
+    otherwise), adjusted for the referee, each side's rest, and travel distance,
+    with a correction that boosts every draw scoreline — not just 0-0 — since
+    plain models are known to underrate how often matches end level — and
+    <strong>the market's</strong>, the bookmakers' own price with the margin
+    stripped out. Premier League fixtures also factor in each squad's current
+    injury/availability picture, pulled live from the Premier League's own
+    Fantasy Football data — flagged in orange below, and still an open
+    experiment, not a proven improvement. A team without enough matches in
+    this league yet is left unrated rather than guessed at. Where the two
+    forecasts land close together, that's the model's reasoning holding up
+    against people paid to get this right. Where they don't, the market
+    usually knows something we don't — a signing, team news that isn't in
+    the numbers yet.
+  </p>
+
+  <div class="stats" id="stats"></div>
+
+  <div id="leagues"></div>
+</main>
+
+<footer>
+  <p>
+    <strong style="color:var(--ink)">Not a betting recommendation.</strong> This model rates
+    teams from historical scoring data and prices matches with a Poisson-based method
+    (Dixon &amp; Coles, 1997), then layers on a referee factor, rest days, and travel
+    distance — each tested against three seasons of results, each individually making the
+    forecasts slightly less accurate, kept on anyway to use more of the real-world signal
+    bookmakers price in. Premier League fixtures also fold in live squad availability from
+    the Premier League's own Fantasy Football data — the one adjustment here with no
+    historical test behind it at all, since no free record of past injury news exists to
+    check it against; treat it as a live experiment, not a proven edge. A team without
+    enough matches in this league yet is excluded rather than guessed at. It doesn't know
+    about transfers mid-window or breaking team news. Market figures are pre-match prices
+    with the bookmaker's margin removed, for comparison only. Full numbers in the project
+    README.
+  </p>
+</footer>
+
+<script>
+  const DATA = __DATA_JSON__;
+
+  const LEAGUE_ORDER = [];
+  for (const m of DATA) if (!LEAGUE_ORDER.includes(m.league)) LEAGUE_ORDER.push(m.league);
+
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const fmtPct = n => (Math.round(n * 10) / 10).toFixed(1);
+  const fmtDate = iso => {
+    const d = new Date(iso);
+    return d.toLocaleString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  // ---- nav ----
+  const nav = document.getElementById('league-nav');
+  for (const lg of LEAGUE_ORDER) {
+    const a = document.createElement('a');
+    a.href = '#' + slug(lg);
+    a.textContent = lg;
+    nav.appendChild(a);
+  }
+
+  // ---- stats ----
+  const rated = DATA.filter(m => !m.unrated);
+  const unratedCount = DATA.length - rated.length;
+  let biggestGap = { pt: 0, fixture: null };
+  for (const m of rated) {
+    if (m.mHome === undefined) continue;
+    const diffs = [Math.abs(m.pHome - m.mHome), Math.abs(m.pDraw - m.mDraw), Math.abs(m.pAway - m.mAway)];
+    const d = Math.max(...diffs);
+    if (d > biggestGap.pt) biggestGap = { pt: d, fixture: `${m.home} v ${m.away}` };
+  }
+  const stats = [
+    { n: rated.length, l: 'Fixtures rated' },
+    { n: LEAGUE_ORDER.length, l: 'Leagues' },
+    { n: unratedCount, l: 'Not enough history' },
+    { n: Math.round(biggestGap.pt) + 'pt', l: 'Biggest model/market gap' },
+  ];
+  const statsEl = document.getElementById('stats');
+  for (const s of stats) {
+    const div = document.createElement('div');
+    div.className = 'stat';
+    div.innerHTML = `<span class="n num">${s.n}</span><span class="l">${s.l}</span>`;
+    statsEl.appendChild(div);
+  }
+
+  // ---- date range ----
+  const dates = DATA.map(m => new Date(m.date)).sort((a, b) => a - b);
+  if (dates.length) {
+    const opts = { day: '2-digit', month: 'short' };
+    document.getElementById('date-range').textContent =
+      `${dates[0].toLocaleDateString('en-GB', opts)} – ${dates[dates.length - 1].toLocaleDateString('en-GB', opts)} 2026`;
+  }
+
+  // ---- fixture bar ----
+  function probBar(home, draw, away, market) {
+    const cls = market ? 'bar market' : 'bar';
+    const seg = (pct, cls2) => {
+      const label = market ? '' : `${fmtPct(pct)}%`;
+      return `<div class="seg ${cls2}" style="width:${pct}%">${label}</div>`;
+    };
+    return `<div class="${cls}">${seg(home, 'home')}${seg(draw, 'draw')}${seg(away, 'away')}</div>`;
+  }
+
+  const leaguesEl = document.getElementById('leagues');
+  for (const lg of LEAGUE_ORDER) {
+    const matches = DATA.filter(m => m.league === lg).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const section = document.createElement('section');
+    section.className = 'league';
+    section.id = slug(lg);
+
+    const ratedInLeague = matches.filter(m => !m.unrated).length;
+    section.innerHTML = `<div class="league-head"><h2>${lg}</h2><span class="count num">${ratedInLeague}/${matches.length} rated</span></div>`;
+
+    const list = document.createElement('div');
+    list.className = 'fixtures';
+
+    for (const m of matches) {
+      const card = document.createElement('div');
+      if (m.unrated) {
+        card.className = 'fixture unrated';
+        card.innerHTML = `
+          <div class="fixture-top">
+            <div class="teams">${m.home}<span class="vs">v</span>${m.away}</div>
+            <div class="meta"><span class="kickoff num">${fmtDate(m.date)}</span></div>
+          </div>
+          <div class="unrated-note">Not enough matches yet for one side (newly promoted, or too early this season) — skipped rather than guessed.</div>`;
+        list.appendChild(card);
+        continue;
+      }
+
+      let gapBadge = '';
+      if (m.mHome !== undefined) {
+        const d = Math.max(Math.abs(m.pHome - m.mHome), Math.abs(m.pDraw - m.mDraw), Math.abs(m.pAway - m.mAway));
+        if (d >= 12) gapBadge = `<span class="gap-badge">±${Math.round(d)}pt vs market</span>`;
+      }
+
+      card.className = 'fixture';
+      card.innerHTML = `
+        <div class="fixture-top">
+          <div class="teams">${m.home}<span class="vs">v</span>${m.away}</div>
+          <div class="meta">
+            <span class="kickoff num">${fmtDate(m.date)}</span>
+            <span class="score-pill num">likely ${m.score}</span>
+            ${gapBadge}
+          </div>
+        </div>
+        <div class="prob-row">
+          <span class="prob-label">Model</span>
+          ${probBar(m.pHome, m.pDraw, m.pAway, false)}
+        </div>
+        ${m.mHome !== undefined ? `
+        <div class="prob-row">
+          <span class="prob-label">Market</span>
+          ${probBar(m.mHome, m.mDraw, m.mAway, true)}
+        </div>` : ''}
+        <div class="legend-inline">
+          <span><span class="swatch" style="background:var(--home)"></span>Home ${fmtPct(m.pHome)}%</span>
+          <span><span class="swatch" style="background:var(--draw)"></span>Draw ${fmtPct(m.pDraw)}%</span>
+          <span><span class="swatch" style="background:var(--away)"></span>Away ${fmtPct(m.pAway)}%</span>
+          <span>O2.5 ${fmtPct(m.over25)}% · BTTS ${fmtPct(m.btts)}%</span>
+        </div>
+        ${m.note ? `<div class="adj-note">⚑ ${m.note}</div>` : ''}`;
+      list.appendChild(card);
+    }
+
+    section.appendChild(list);
+    leaguesEl.appendChild(section);
+  }
+</script>

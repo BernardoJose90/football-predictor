@@ -1,0 +1,16 @@
+.env
+data/raw/
+# `data/processed/*` (not a bare directory pattern) so the negation below
+# can actually un-ignore one file inside it - git can't un-ignore a file
+# whose parent directory itself is excluded from traversal.
+data/processed/*
+# xG changes slowly (only as matches are played) and Understat has no
+# official API - cache it in the repo rather than re-pull it every CI run,
+# per the project's own "cache Understat aggressively" rule. Refresh
+# manually with `python -m ingest.understat` every so often, not on schedule.
+!data/processed/understat_xg.csv
+.venv/
+__pycache__/
+*.pyc
+artefacts/
+.pytest_cache/
