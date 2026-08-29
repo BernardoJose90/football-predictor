@@ -16,7 +16,11 @@ Two distinct kinds of evidence, kept separate rather than blended together:
     evaluation window, run with its current production config (same defaults
     as scripts.run_backtest). This is long-run evidence that doesn't depend
     on how many weeks the live log has been running, shown alongside the live
-    numbers rather than instead of them.
+    numbers rather than instead of them. Carries the extended battery too:
+    the Brier/Murphy decomposition, sharpness, per-season RPS, and paired
+    Diebold-Mariano tests of whether the model-vs-market and model-vs-Elo
+    RPS gaps are statistically real (they feed the *_significant flags in
+    the headline block).
 """
 from __future__ import annotations
 
@@ -123,6 +127,27 @@ def _validation(matches: pd.DataFrame, eval_start: str, eval_end: str | None) ->
     dv_summary = metrics.summary(dv_common)
     elo_summary = metrics.summary(elo_common)
 
+    # extended battery: is each headline gap real, how sharp/informative is the
+    # model, and does the number hold across seasons rather than one lucky window
+    significance = {}
+    by_season = []
+    brier = sharp = None
+    if not rated.empty:
+        brier = metrics.brier_decomposition(rated)
+        sharp = metrics.sharpness(rated)
+        for name, other in (("market", dv_common), ("elo", elo_common)):
+            o = other.dropna(subset=["p_home", "p_draw", "p_away"])[
+                ["match_id", "p_home", "p_draw", "p_away"]]
+            m = rated[["match_id", "p_home", "p_draw", "p_away", "result"]].merge(
+                o, on="match_id", suffixes=("_m", "_o"), how="inner")
+            if len(m) >= 2:
+                mr = metrics.rps_series(m, cols=("p_home_m", "p_draw_m", "p_away_m"), outcome_col="result")
+                orr = metrics.rps_series(m, cols=("p_home_o", "p_draw_o", "p_away_o"), outcome_col="result")
+                significance[name] = metrics.forecast_comparison(mr.to_numpy(), orr.to_numpy())
+        szn = rated.assign(_rps=metrics.rps_series(rated)).groupby("season")["_rps"].agg(["mean", "size"])
+        by_season = [{"season": s, "rps": round(float(r["mean"]), 4), "n": int(r["size"])}
+                     for s, r in szn.iterrows()]
+
     return {
         "window": {"start": start.strftime("%Y-%m-%d"),
                   "end": (end.strftime("%Y-%m-%d") if end is not None else matches["date"].max().strftime("%Y-%m-%d"))},
@@ -135,11 +160,18 @@ def _validation(matches: pd.DataFrame, eval_start: str, eval_end: str | None) ->
             "elo_rps": round(elo_summary["rps"], 4), "elo_n": elo_summary["n"],
             "calibration_error": rep.get("calibration_error_home", float("nan")),
             "beats_elo": bool(rep["rps"] < elo_summary["rps"]),
+            "beats_elo_significant": bool(significance.get("elo", {}).get("p_value", 1.0) < 0.05
+                                          and significance.get("elo", {}).get("mean_diff", 0.0) < 0),
             "gap_to_market": round(rep["rps"] - dv_summary["rps"], 4),
+            "gap_to_market_significant": bool(significance.get("market", {}).get("p_value", 1.0) < 0.05),
         },
         "monthly": {"model": series(_monthly_rps(rated)), "devig": series(_monthly_rps(dv_common)),
                    "elo": series(_monthly_rps(elo_common))},
         "calibration": calib,
+        "brier": brier,
+        "sharpness": sharp,
+        "significance": significance,
+        "by_season": by_season,
         "leagues": leagues,
     }
 
@@ -181,6 +213,15 @@ def main(argv=None) -> int:
               f"{sl['result_and_within_1']:.1%} result+1  (1-1 baseline {sl['baseline_always_1_1']:.1%}, n={sl['n']})")
     print(f"validation : model RPS {val['model_rps']:.4f} vs devig {val['devig_rps']:.4f} "
           f"vs Elo {val['elo_rps']:.4f}  (n={val['model_n']})")
+    sig = payload["validation"].get("significance", {})
+    if sig:
+        mk, el = sig.get("market", {}), sig.get("elo", {})
+        if mk:
+            print(f"             vs market: ΔRPS {mk['mean_diff']:+.4f} p={mk['p_value']:.4f} "
+                  f"({'significant' if mk['p_value'] < 0.05 else 'not significant'})")
+        if el:
+            print(f"             vs Elo   : ΔRPS {el['mean_diff']:+.4f} p={el['p_value']:.4f} "
+                  f"({'significant' if el['p_value'] < 0.05 else 'not significant'})")
     print(f"wrote {out_path}")
     return 0
 

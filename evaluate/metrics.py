@@ -115,3 +115,142 @@ def calibration_error(preds, outcomes, bins: int = 10) -> float:
     if tbl["n"].sum() == 0:
         return float("nan")
     return float(np.average((tbl["predicted"] - tbl["observed"]).abs(), weights=tbl["n"]))
+
+
+# --------------------------------------------------------------------------
+# Extended evaluation battery (Gneiting et al. 2007 on calibration/sharpness;
+# Murphy 1973 on the Brier decomposition; Diebold & Mariano 1995 on comparing
+# two forecasters). All operate on the same (p_home, p_draw, p_away) + result
+# frame the rest of this module uses.
+# --------------------------------------------------------------------------
+
+def _probs_matrix(df: pd.DataFrame, cols=("p_home", "p_draw", "p_away")) -> np.ndarray:
+    p = df.loc[:, list(cols)].to_numpy(dtype=float)
+    return p / p.sum(axis=1, keepdims=True)
+
+
+def _onehot_matrix(outcomes: pd.Series) -> np.ndarray:
+    return np.array([_ONEHOT[o] for o in outcomes], dtype=float)
+
+
+def brier_multiclass(df: pd.DataFrame,
+                     cols=("p_home", "p_draw", "p_away"),
+                     outcome_col: str = "result") -> float:
+    """Mean multi-class Brier score: mean over matches of sum_k (p_k - o_k)^2.
+
+    Range [0, 2]; lower is better. A second strictly proper scoring rule to
+    sit beside RPS and log loss (RPS is distance-sensitive, Brier and log
+    loss are not - reporting all three is the standard hedge)."""
+    scored = df.dropna(subset=list(cols) + [outcome_col])
+    if scored.empty:
+        return float("nan")
+    p = _probs_matrix(scored, cols)
+    o = _onehot_matrix(scored[outcome_col])
+    return float(((p - o) ** 2).sum(axis=1).mean())
+
+
+def brier_decomposition(df: pd.DataFrame,
+                        cols=("p_home", "p_draw", "p_away"),
+                        outcome_col: str = "result",
+                        bins: int = 10) -> dict:
+    """Murphy's reliability / resolution / uncertainty decomposition of the
+    multi-class Brier score, summed over the three one-vs-rest problems.
+
+        brier ~= reliability - resolution + uncertainty
+
+    reliability  : calibration error (lower better; 0 = perfectly calibrated)
+    resolution   : how much the forecasts separate high- from low-probability
+                   events (higher better)
+    uncertainty  : variance of the outcome itself - a property of the data,
+                   not the forecaster, and the same for every model on this
+                   sample (so it's the yardstick resolution is judged against)
+    """
+    scored = df.dropna(subset=list(cols) + [outcome_col])
+    if scored.empty:
+        return {"reliability": float("nan"), "resolution": float("nan"),
+                "uncertainty": float("nan"), "brier": float("nan"), "n": 0}
+    p = _probs_matrix(scored, cols)
+    o = _onehot_matrix(scored[outcome_col])
+    n = len(scored)
+    edges = np.linspace(0.0, 1.0, bins + 1)
+
+    reliability = resolution = uncertainty = 0.0
+    for k in range(3):
+        pk, ok = p[:, k], o[:, k]
+        base = ok.mean()
+        uncertainty += base * (1.0 - base)
+        idx = np.clip(np.digitize(pk, edges[1:-1]), 0, bins - 1)
+        for b in range(bins):
+            m = idx == b
+            nb = int(m.sum())
+            if nb == 0:
+                continue
+            pbar, obar = pk[m].mean(), ok[m].mean()
+            reliability += nb / n * (pbar - obar) ** 2
+            resolution += nb / n * (obar - base) ** 2
+    return {
+        "reliability": round(float(reliability), 5),
+        "resolution": round(float(resolution), 5),
+        "uncertainty": round(float(uncertainty), 5),
+        "brier": round(float(((p - o) ** 2).sum(axis=1).mean()), 5),
+        "n": n,
+    }
+
+
+def sharpness(df: pd.DataFrame, cols=("p_home", "p_draw", "p_away")) -> dict:
+    """How committed the forecasts are, independent of whether they're right.
+
+    ``entropy`` is the mean Shannon entropy (nats) of the 1X2 vector - lower
+    is sharper, 0 = always certain, ln(3)=1.0986 = always 33/33/33.
+    ``mean_max_prob`` is the average probability put on the most likely
+    outcome. Sharpness only counts as a virtue once calibration holds
+    (Gneiting et al. 2007): a sharp but miscalibrated model is just
+    confidently wrong."""
+    p = _probs_matrix(df.loc[:, list(cols)].dropna(), cols)
+    if len(p) == 0:
+        return {"entropy": float("nan"), "mean_max_prob": float("nan"), "n": 0}
+    ent = -(p * np.log(np.clip(p, 1e-15, 1.0))).sum(axis=1)
+    return {
+        "entropy": round(float(ent.mean()), 4),
+        "mean_max_prob": round(float(p.max(axis=1).mean()), 4),
+        "n": int(len(p)),
+    }
+
+
+def forecast_comparison(loss_a, loss_b, n_boot: int = 10000, seed: int = 0) -> dict:
+    """Is forecaster A's per-match loss (RPS, say) really lower than B's?
+
+    ``loss_a`` / ``loss_b`` are aligned per-match loss arrays for the SAME
+    fixtures. Returns the mean difference (a - b; negative => A better), a
+    Diebold-Mariano statistic (Diebold & Mariano 1995 - no autocovariance
+    term, valid here because match forecasts are one-step and independent
+    across fixtures), its two-sided p-value, and a paired bootstrap 95% CI on
+    the mean difference (same non-parametric check the README already uses
+    for the xg-vs-sot comparison)."""
+    a = np.asarray(loss_a, dtype=float)
+    b = np.asarray(loss_b, dtype=float)
+    if a.shape != b.shape:
+        raise ValueError(f"loss arrays must align: {a.shape} vs {b.shape}")
+    d = a - b
+    n = len(d)
+    if n < 2 or np.allclose(d, 0.0):
+        return {"n": n, "mean_diff": float(d.mean()) if n else float("nan"),
+                "dm_stat": 0.0, "p_value": 1.0, "ci_low": 0.0, "ci_high": 0.0}
+
+    from scipy import stats
+
+    se = np.sqrt(d.var(ddof=1) / n)
+    dm = float(d.mean() / se)
+    p = float(2 * stats.t.sf(abs(dm), df=n - 1))
+
+    rng = np.random.default_rng(seed)
+    boot = rng.choice(d, size=(n_boot, n), replace=True).mean(axis=1)
+    lo, hi = np.percentile(boot, [2.5, 97.5])
+    return {
+        "n": n,
+        "mean_diff": round(float(d.mean()), 5),
+        "dm_stat": round(dm, 3),
+        "p_value": round(p, 5),
+        "ci_low": round(float(lo), 5),
+        "ci_high": round(float(hi), 5),
+    }

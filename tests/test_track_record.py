@@ -46,6 +46,24 @@ def test_build_runs_end_to_end_on_synthetic_league(synthetic_matches, monkeypatc
     assert payload["validation"]["leagues"][0]["league"] == "Test League"
 
 
+def test_build_validation_includes_extended_battery(synthetic_matches, monkeypatch, tmp_path):
+    monkeypatch.setattr(tr, "_load_matches", lambda: synthetic_matches)
+    from evaluate import prediction_log
+    empty_log = prediction_log.load(tmp_path / "no_log.csv")
+    monkeypatch.setattr(prediction_log, "load", lambda *a, **k: empty_log)
+
+    val = tr.build(eval_start="2024-08-01", eval_end=None)["validation"]
+    assert set(val["brier"]) >= {"reliability", "resolution", "uncertainty", "brier"}
+    assert set(val["sharpness"]) >= {"entropy", "mean_max_prob"}
+    assert isinstance(val["by_season"], list) and val["by_season"]
+    # significance vs the market is always computable on the synthetic league
+    assert "market" in val["significance"]
+    assert set(val["significance"]["market"]) >= {"mean_diff", "p_value", "ci_low", "ci_high"}
+    # headline gains the "is it significant" companion flags
+    assert "beats_elo_significant" in val["headline"]
+    assert "gap_to_market_significant" in val["headline"]
+
+
 def test_build_validation_config_reflects_production_defaults(synthetic_matches, monkeypatch, tmp_path):
     import config
     monkeypatch.setattr(tr, "_load_matches", lambda: synthetic_matches)

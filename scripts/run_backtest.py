@@ -7,6 +7,10 @@ Prints:
   * Elo RPS                     (baseline 2)
   * model RPS / log loss / coverage / calibration error
   * whether the model beats Elo and lands within 0.01 of the closing line
+  * extended battery: multiclass Brier + Murphy reliability/resolution/
+    uncertainty decomposition, sharpness (predictive entropy), a paired
+    Diebold-Mariano test of the model-vs-market and model-vs-Elo RPS gaps
+    (are they real or noise?), and per-season RPS
 
 Writes artefacts/calibration.png.
 """
@@ -128,8 +132,59 @@ def main(argv=None) -> int:
           f"(gap {rep['rps'] - dv_common['rps']:+.4f})")
     if len(rated):
         print(f"\ncalibration plot -> {out}")
+
+    # ---- extended battery ---------------------------------------------------
+    if len(rated) >= 2:
+        _print_extended(rated, dv_scored, elo_scored)
     print("=================================================\n")
     return 0
+
+
+def _aligned_rps(rated: pd.DataFrame, other: pd.DataFrame) -> tuple:
+    """Per-match RPS for the model and for `other` (devig or Elo), on exactly
+    the fixtures both rated, in the same order - so forecast_comparison can
+    pair them."""
+    o = other.dropna(subset=["p_home", "p_draw", "p_away"])[
+        ["match_id", "p_home", "p_draw", "p_away"]]
+    m = rated[["match_id", "p_home", "p_draw", "p_away", "result"]].merge(
+        o, on="match_id", suffixes=("_m", "_o"), how="inner")
+    if m.empty:
+        return None, None
+    model_rps = metrics.rps_series(
+        m, cols=("p_home_m", "p_draw_m", "p_away_m"), outcome_col="result")
+    other_rps = metrics.rps_series(
+        m, cols=("p_home_o", "p_draw_o", "p_away_o"), outcome_col="result")
+    return model_rps.to_numpy(), other_rps.to_numpy()
+
+
+def _print_extended(rated: pd.DataFrame, dv_scored: pd.DataFrame, elo_scored: pd.DataFrame) -> None:
+    print("\n----------  extended battery  -------------------")
+
+    dec = metrics.brier_decomposition(rated)
+    shp = metrics.sharpness(rated)
+    print(f"Brier (multiclass)        : {metrics.brier_multiclass(rated):.4f}")
+    print(f"  reliability (cal, lower) : {dec['reliability']:.4f}")
+    print(f"  resolution  (info, higher): {dec['resolution']:.4f}")
+    print(f"  uncertainty (data const): {dec['uncertainty']:.4f}")
+    print(f"sharpness: entropy {shp['entropy']:.3f} nats (1.099 = flat 33/33/33), "
+          f"mean top prob {shp['mean_max_prob']:.3f}")
+
+    for name, other in (("devig line", dv_scored), ("Elo proxy", elo_scored)):
+        m_rps, o_rps = _aligned_rps(rated, other)
+        if m_rps is None:
+            continue
+        cmp = metrics.forecast_comparison(m_rps, o_rps)
+        verdict = ("model better" if cmp["mean_diff"] < 0 else "model worse") if cmp["p_value"] < 0.05 \
+            else "no significant difference"
+        print(f"vs {name:10s}: ΔRPS {cmp['mean_diff']:+.4f} "
+              f"[{cmp['ci_low']:+.4f}, {cmp['ci_high']:+.4f}]  "
+              f"DM {cmp['dm_stat']:+.2f}  p={cmp['p_value']:.4f}  -> {verdict}")
+
+    by_season = (rated.assign(_rps=metrics.rps_series(rated))
+                 .groupby("season")["_rps"].agg(["mean", "size"]))
+    print("per-season model RPS:")
+    for season, row in by_season.iterrows():
+        print(f"  {season}: {row['mean']:.4f}  (n={int(row['size'])})")
 
 
 if __name__ == "__main__":

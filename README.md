@@ -297,13 +297,26 @@ xi=0.0035):
 | **this model** | **0.2039** | **1.004** | 2816 |
 
 - RPS < 0.21: **yes** (0.2039, inside the 0.184-0.213 published band)
-- beats the Elo proxy on the same fixtures: **yes**
-- within 0.01 RPS of the devigged closing line: **yes** (gap +0.0062)
+- beats the Elo proxy on the same fixtures: **yes on the point estimate**
+  (-0.0009 RPS) but **not significantly** - a paired Diebold-Mariano test
+  (Diebold & Mariano 1995) gives p ~ 0.44, and the paired-bootstrap 95% CI
+  on the difference straddles zero. Read as "matches Elo," not "beats it."
+- within 0.01 RPS of the devigged closing line: **yes** (gap +0.0062) - but
+  that gap *is* significant (DM p < 1e-8, bootstrap CI ~[+0.004, +0.009]):
+  the model is reliably a little worse than the closing line, not level with
+  it. This is expected - the closing line is the sharpest public forecast
+  there is - and it still clears the design doc's "within 0.01" bar.
 - coverage: 95.5% (the rest are early-season/promoted teams under the
   `min_matches=8` guard - by design, not a bug; coverage dipped slightly from
   earlier runs because this window now reaches into the very first weeks of
   three new seasons at once)
 - calibration error (P(home win), 10 bins): 0.028 - see `artefacts/calibration.png`
+- extended battery (`run_backtest.py` now also prints these): multiclass
+  Brier ~0.599 with a Murphy decomposition of reliability ~0.0015 (very well
+  calibrated) / resolution ~0.051 / uncertainty ~0.650; sharpness ~1.01 nats
+  of entropy vs 1.099 for a flat 33/33/33 guess (the model commits only
+  slightly - football is genuinely high-variance); per-season RPS is stable
+  across the window.
 
 **On the Club Elo row**: the design doc's baseline is the real clubelo.com
 rating pulled via `soccerdata`. To keep this repo dependency-free and fully

@@ -61,3 +61,64 @@ def test_calibration_table_diagonal_when_perfectly_calibrated():
     tbl = metrics.calibration_table(p, hit, bins=5)
     err = metrics.calibration_error(p, hit, bins=5)
     assert err < 0.05, tbl
+
+
+# ---- extended battery ----------------------------------------------------
+
+def _frame(rows):
+    import pandas as pd
+    return pd.DataFrame(rows, columns=["p_home", "p_draw", "p_away", "result"])
+
+
+def test_brier_multiclass_perfect_is_zero_worst_is_two():
+    perfect = _frame([(1.0, 0.0, 0.0, "H"), (0.0, 0.0, 1.0, "A")])
+    assert metrics.brier_multiclass(perfect) == pytest.approx(0.0)
+    worst = _frame([(0.0, 0.0, 1.0, "H")])
+    assert metrics.brier_multiclass(worst) == pytest.approx(2.0)
+
+
+def test_brier_decomposition_identity_holds():
+    # brier ~= reliability - resolution + uncertainty (within the small
+    # within-bin residual of the 3-term form)
+    import numpy as np
+    rng = np.random.default_rng(1)
+    rows = []
+    for _ in range(3000):
+        p = rng.dirichlet([2, 2, 2])
+        out = "HDA"[rng.choice(3, p=p)]  # perfectly calibrated by construction
+        rows.append((p[0], p[1], p[2], out))
+    dec = metrics.brier_decomposition(_frame(rows))
+    recon = dec["reliability"] - dec["resolution"] + dec["uncertainty"]
+    assert recon == pytest.approx(dec["brier"], abs=0.01)
+    assert dec["reliability"] < 0.01  # calibrated data -> tiny reliability term
+
+
+def test_sharpness_flat_forecast_is_ln3():
+    flat = _frame([(1 / 3, 1 / 3, 1 / 3, "H")] * 10)
+    assert metrics.sharpness(flat)["entropy"] == pytest.approx(math.log(3), abs=1e-4)
+    sharp = _frame([(0.98, 0.01, 0.01, "H")] * 10)
+    assert metrics.sharpness(sharp)["entropy"] < 0.2
+    assert metrics.sharpness(sharp)["mean_max_prob"] == pytest.approx(0.98)
+
+
+def test_forecast_comparison_identical_losses_not_significant():
+    loss = [0.2, 0.1, 0.3, 0.25, 0.15]
+    r = metrics.forecast_comparison(loss, loss)
+    assert r["p_value"] == pytest.approx(1.0)
+    assert r["mean_diff"] == pytest.approx(0.0)
+
+
+def test_forecast_comparison_flags_a_real_difference():
+    import numpy as np
+    rng = np.random.default_rng(2)
+    a = rng.normal(0.20, 0.05, 2000)
+    b = a + rng.normal(0.01, 0.001, 2000)  # b consistently worse by ~0.01
+    r = metrics.forecast_comparison(a, b)
+    assert r["mean_diff"] < 0          # a better
+    assert r["p_value"] < 0.001
+    assert r["ci_high"] < 0            # CI excludes zero
+
+
+def test_forecast_comparison_rejects_misaligned():
+    with pytest.raises(ValueError):
+        metrics.forecast_comparison([0.1, 0.2], [0.1, 0.2, 0.3])
