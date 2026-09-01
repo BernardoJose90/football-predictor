@@ -160,18 +160,23 @@ def main(argv=None) -> int:
                     help="diagonal-inflation strength on the Dixon-Coles grid (0 = off)")
     ap.add_argument("--refresh", action="store_true",
                     help="re-download historical CSVs (incl. current season) and rebuild teams.yaml first")
-    ap.add_argument("--no-referee", dest="use_referee", action="store_false",
+    ap.add_argument("--referee", dest="use_referee", action="store_true",
                     default=config.DEFAULT_USE_REFEREE,
-                    help="disable the referee-identity adjustment (section 10.1 rank 1 - "
-                         "raised RPS in testing; ON by default per product decision, see README)")
-    ap.add_argument("--no-rest", dest="use_rest", action="store_false",
+                    help="enable the referee-identity adjustment (section 10.1 rank 1 - "
+                         "raised RPS in testing and produces large small-sample artefacts; "
+                         "OFF by default, see README's Milestone 4 section)")
+    ap.add_argument("--no-referee", dest="use_referee", action="store_false",
+                    help="explicitly disable it (redundant while the default is off, kept for symmetry)")
+    ap.add_argument("--rest", dest="use_rest", action="store_true",
                     default=config.DEFAULT_USE_REST,
-                    help="disable the days-since-last-match fatigue adjustment (section 10.1 rank 2 - "
-                         "raised RPS in testing; ON by default per product decision)")
-    ap.add_argument("--no-travel", dest="use_travel", action="store_false",
+                    help="enable the days-since-last-match fatigue adjustment (section 10.1 rank 2 - "
+                         "raised RPS in testing; OFF by default)")
+    ap.add_argument("--no-rest", dest="use_rest", action="store_false", help="explicitly disable it")
+    ap.add_argument("--travel", dest="use_travel", action="store_true",
                     default=config.DEFAULT_USE_TRAVEL,
-                    help="disable the away-travel-distance adjustment (section 10.1 rank 3 - "
-                         "raised RPS in testing; ON by default per product decision)")
+                    help="enable the away-travel-distance adjustment (section 10.1 rank 3 - "
+                         "raised RPS in testing; OFF by default)")
+    ap.add_argument("--no-travel", dest="use_travel", action="store_false", help="explicitly disable it")
     ap.add_argument("--use-squad-value", dest="use_squad_value", action="store_true",
                     default=config.DEFAULT_USE_SQUAD_VALUE,
                     help="enable the squad-market-value prior for unrated teams (section 10.1 "

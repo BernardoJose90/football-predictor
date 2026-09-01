@@ -92,11 +92,10 @@
   <p class="intro">
     Every fixture below got two forecasts: <strong>ours</strong>, built from each team's
     recent attack and defence (expected goals where available, shots on target
-    otherwise), adjusted for the referee, each side's rest, and travel distance,
-    with a correction that boosts every draw scoreline — not just 0-0 — since
-    plain models are known to underrate how often matches end level — and
-    <strong>the market's</strong>, the bookmakers' own price with the margin
-    stripped out. Premier League fixtures also factor in each squad's current
+    otherwise), with a correction that boosts every draw scoreline — not just
+    0-0 — since plain models are known to underrate how often matches end level
+    — and <strong>the market's</strong>, the bookmakers' own price with the
+    margin stripped out. Premier League fixtures also factor in each squad's current
     injury/availability picture, pulled live from the Premier League's own
     Fantasy Football data — flagged in orange below, and still an open
     experiment, not a proven improvement. A team without enough matches in
@@ -116,10 +115,10 @@
   <p>
     <strong style="color:var(--ink)">Not a betting recommendation.</strong> This model rates
     teams from historical scoring data and prices matches with a Poisson-based method
-    (Dixon &amp; Coles, 1997), then layers on a referee factor, rest days, and travel
-    distance — each tested against three seasons of results, each individually making the
-    forecasts slightly less accurate, kept on anyway to use more of the real-world signal
-    bookmakers price in. Premier League fixtures also fold in live squad availability from
+    (Dixon &amp; Coles, 1997) plus a whole-diagonal draw correction. Referee, rest-day and
+    travel adjustments were built and tested against three seasons of results; each made
+    the forecasts slightly less accurate, so they're off by default. Premier League
+    fixtures do fold in live squad availability from
     the Premier League's own Fantasy Football data — the one adjustment here with no
     historical test behind it at all, since no free record of past injury news exists to
     check it against; treat it as a live experiment, not a proven edge. A team without

@@ -78,12 +78,13 @@
     Every fixture below is one where <strong>our number and the bookmakers' price
     disagree</strong> by at least 5 points on some outcome. For each, the gap is
     split in two: the <strong>ratings-only</strong> forecast (plain attack/defence
-    plus the Dixon-Coles grid, no other adjustments) and the <strong>published</strong>
-    one (after the referee, rest, travel and availability nudges). If the two are
-    close together, the disagreement is a <em>recent-form call</em> — our ratings
-    price the match differently from the market. If the published bar has swung
-    away from the ratings-only one, the <em>adjustments</em> are doing the
-    disagreeing. Market = the pre-match price with the bookmaker's margin removed.
+    plus the Dixon-Coles grid) and the <strong>published</strong> one. These are
+    usually identical — the referee / rest / travel nudges are off by default
+    (they tested worse), so an adjustment only moves the number on a Premier
+    League fixture with <code>--use-injuries</code> set. When the two bars differ,
+    an adjustment is doing the disagreeing; when they match, it's a pure
+    <em>recent-form call</em> — our ratings price the match differently from the
+    market. Market = the pre-match price with the bookmaker's margin removed.
   </p>
 
   <div class="stats" id="stats"></div>
@@ -103,10 +104,10 @@
     Poisson-based method (Dixon &amp; Coles, 1997) plus a whole-diagonal draw
     correction. The referee / rest / travel adjustments each individually made
     the model slightly <em>less</em> accurate in three seasons of walk-forward
-    testing and are kept on by an explicit decision to use more of the signal
-    bookmakers price in — so a disagreement driven by them is the weakest kind.
-    Where the model and the market diverge, the market usually knows something
-    the numbers don't yet (a signing, team news). Full method in the project README.
+    testing, so they're off by default — a disagreement driven by an adjustment
+    is the weakest kind and is now rare. Where the model and the market diverge,
+    the market usually knows something the numbers don't yet (a signing, team
+    news). Full method in the project README.
   </p>
 </footer>
 

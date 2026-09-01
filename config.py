@@ -84,17 +84,21 @@ AUTO_STAT_PRIMARY = "xg"
 AUTO_STAT_FALLBACK = "sot"
 
 # ---- section 10.1 feature candidates ---------------------------------------
-# Each was tested walk-forward against RPS on the tuning window (see README's
-# Milestone 4 section for the numbers). Referee identity and rest days both
-# raised RPS (made forecasts less accurate) on this repo's 3-season, 8-league
-# dataset - kept ON anyway per an explicit product decision to prioritise
-# using more of the real-world signal bookmakers use over the narrow RPS
-# score, with the tradeoff documented rather than hidden. Recompute the RPS
-# comparison after any change to the dataset - the sample-size problem that
-# made them noisy on 3 seasons may not hold on more data.
-DEFAULT_USE_REFEREE = True
-DEFAULT_USE_REST = True
-DEFAULT_USE_TRAVEL = True
+# Referee identity, days-since-last-match and travel distance were each tested
+# walk-forward against RPS (see README's Milestone 4 section). All three raised
+# RPS - made the forecasts less accurate - individually and together, on this
+# repo's 3-season, 8-league dataset. They were kept ON for a while as a
+# "use more of the signal bookmakers use" call, then turned OFF: the evidence
+# says they don't help, the referee factor in particular produces large
+# small-sample artefacts (a lone ref can swing a fixture 20 points), and
+# "we tested these and rejected them" is a cleaner, more honest story than
+# keeping them despite the metric. The code, flags and tests stay; re-enable
+# per run with --referee / --rest / --travel on scripts.predict_upcoming (or
+# use_*=True on BacktestConfig), and recompute the RPS comparison if the
+# dataset grows - the 3-season sample-size noise may not hold on more data.
+DEFAULT_USE_REFEREE = False
+DEFAULT_USE_REST = False
+DEFAULT_USE_TRAVEL = False
 REFEREE_MIN_MATCHES = 12
 REST_K = 0.02
 TRAVEL_K = 0.00006     # per km, see model/travel.py

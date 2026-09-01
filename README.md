@@ -119,27 +119,27 @@ Championship, Primeira Liga, Scottish Premiership report "using stat=sot".
 `--stat sot` / `--stat xg` still force a single stat everywhere if you want
 the old fixed behaviour back.
 
-**Section 10.1 feature candidates - all four now implemented and tested:**
+**Section 10.1 feature candidates - all four implemented, tested, and OFF:**
 
 | Candidate | Verdict | Evidence |
 |---|---|---|
-| Referee identity (`model/referee.py`) | Tested worse, **kept ON anyway** | RPS +0.0008 to +0.0017 across every decay/min-matches setting tried |
-| Days since last match (`model/rest.py`) | Tested worse, **kept ON anyway** | RPS rises monotonically as the fatigue penalty `k` increases from 0; `k=0` exactly reproduces baseline, confirming the plumbing (not a bug) |
-| Travel distance (`model/travel.py`) | Tested worse, **kept ON anyway** | RPS 0.20194 vs 0.20172 baseline, alone |
-| Squad market value (`model/squad_value.py`) | Built, tested, **OFF by product decision** | Not RPS-testable at all (see below) - turned off because a team without enough history should stay excluded, not priced from money |
+| Referee identity (`model/referee.py`) | Tested worse, **OFF** | RPS +0.0008 to +0.0017 across every decay/min-matches setting tried; also produces large small-sample artefacts (a lone ref can swing a fixture 20 points) |
+| Days since last match (`model/rest.py`) | Tested worse, **OFF** | RPS rises monotonically as the fatigue penalty `k` increases from 0; `k=0` exactly reproduces baseline, confirming the plumbing (not a bug) |
+| Travel distance (`model/travel.py`) | Tested worse, **OFF** | RPS 0.20194 vs 0.20172 baseline, alone |
+| Squad market value (`model/squad_value.py`) | Built, tested, **OFF** | Not RPS-testable at all (see below) - a team without enough history should stay excluded, not priced from money |
 
-All three RPS-tested candidates raised RPS individually; combined (referee +
-rest + travel together) RPS is **0.20378** vs a **0.20172** pure baseline -
-worse by design terms, kept on anyway per an explicit decision to prioritise
-using more of the real-world signal bookmakers use over this one narrow
-metric, with the tradeoff written down rather than hidden. `--no-referee`,
-`--no-rest`, `--no-travel` on `scripts.predict_upcoming` (or the matching
-`use_*=False` on `BacktestConfig`) get the better-tested plain model back.
-The doc's own methodology note still applies: "referees differ in home
-advantage produced" (Nevill, Balmer & Williams 2007) is a real, separately-
-replicated finding about raw goal/card differentials - it just doesn't
-translate into better match-outcome *forecasts* layered on an already-tuned
-rating model at this sample size (3 seasons).
+All three RPS-tested nudges raised RPS individually and together (referee +
+rest + travel combined: **0.20378** vs a **0.20172** pure baseline). They
+were kept on for a while as a "use more of the signal bookmakers use" call,
+then turned off (`config.DEFAULT_USE_* = False`): the evidence says they
+don't help, and "we tested these and rejected them" is a cleaner story than
+keeping them despite the metric. The code, the tests, and the `--referee` /
+`--rest` / `--travel` re-enable flags on `scripts.predict_upcoming` (or
+`use_*=True` on `BacktestConfig`) all stay. The methodology note still holds:
+"referees differ in home advantage produced" (Nevill, Balmer & Williams 2007)
+is a real, separately-replicated finding about raw goal/card differentials -
+it just doesn't translate into better match-outcome *forecasts* layered on an
+already-tuned rating model at this sample size (3 seasons).
 
 All four share the same architecture: a generic `lam_mult`/`mu_mult` hook on
 `model.predict.predict_match` that multiplies expected goals after the
@@ -206,11 +206,13 @@ constant the way this does).
 
 Clean U-shape, minimum at **delta=0.20**, set as `config.DEFAULT_DELTA`. A
 modest improvement (-0.00033 RPS) but a real, positive one - referee, rest,
-and travel all made things worse and were kept anyway by decision; this is
-the first section-10.1-style addition that earned its place on the metric
-itself. Re-verified section 3 criteria 3-6 still hold with it on: RPS 0.2044
-(< 0.21), beats Elo, within 0.01 of the closing line (gap +0.0067) -
-calibration error on P(home win) actually *improved*, 0.0234 -> 0.0155.
+and travel all made things worse and were dropped; this is the first
+section-10.1-style addition that earned its place on the metric itself. The
+delta sweep above was run with referee/rest/travel on (the config at the
+time); isolated (`stat=sot` alone) the optimum was flatter at ~0.15, and the
+two agree closely enough to keep one constant. Section 3 criteria 3-6 hold
+in the current no-adjustments config (see the Evaluation section below): RPS
+0.2033 (< 0.21), significantly beats Elo, within 0.01 of the closing line.
 
 ## Premier-League-only injury/availability (live-only, untestable, off by default)
 
@@ -255,10 +257,11 @@ model and the market disagree by 5+ points, splits the gap in two: `base_p_*`
 is the same fixture priced with every section-10.1 adjustment turned off
 (plain ratings + Dixon-Coles), `p_*` is what actually shipped. A big gap with
 little movement between the two means the *core ratings* disagree with the
-market; a gap that mostly closes at `base_p_*` means the *adjustments*
-(referee, rest, travel, injuries) are doing the disagreeing - the page labels
-each fixture "ratings-driven" / "adjustment-driven" / "mixed" and shows the
-attack/defence numbers behind it. Reads the rich per-fixture JSON
+market; a gap that mostly closes at `base_p_*` means an *adjustment* is
+doing the disagreeing (referee/rest/travel are off by default now, so this is
+rare - injuries, when `--use-injuries` is set, is the main one left). The page
+labels each fixture "ratings-driven" / "adjustment-driven" / "mixed" and shows
+the attack/defence numbers behind it. Reads the rich per-fixture JSON
 `predict_upcoming` always writes next to its CSV - nothing is recomputed.
 
 **The Angles** (`scripts/render_angles.py` -> `docs/angles.html` via
@@ -268,9 +271,10 @@ above* the market's (the "edge"), filtered to edge >= 5pt and pick
 probability >= 35%, sorted biggest edge first, tagged favourite / underdog /
 draw. Deliberately not a list of short favourites (no edge = not listed) and
 carries a prominent caveat: the model lands ~1% worse than the closing line,
-a small edge is often eaten by the bookmaker's margin, and a double-digit
-edge is usually the section-10.1 adjustments stretching rather than a
-mispriced market. Reads the same `upcoming_predictions.json`.
+a small edge is often eaten by the bookmaker's margin, and a large edge is
+usually a soft lower-league price or the model rating recent form that the
+market has marked down for a reason the numbers can't see. Reads the same
+`upcoming_predictions.json`.
 
 **The Ledger** (`evaluate/prediction_log.py` + `evaluate/track_record.py` +
 `scripts/track_record.py`). Two kinds of evidence, kept separate:
@@ -323,30 +327,33 @@ bump each August.
 across all 8 leagues, ratings built only from strictly-prior matches, tuned
 xi=0.0035):
 
+Numbers below are the current production config: `stat=auto`, xi=0.0035,
+delta=0.20, **no referee/rest/travel adjustments** (all three tested worse
+and were dropped - see Milestone 4 above).
+
 | | RPS | log loss | n |
 |---|---|---|---|
-| devigged closing line | 0.1978 | 0.979 | 2816 |
-| Club Elo (self-fit proxy, see below) | 0.2053 | 1.004 | 2816 |
-| **this model** | **0.2039** | **1.004** | 2816 |
+| devigged closing line | 0.1977 | 0.979 | 2815 |
+| Club Elo (self-fit proxy, see below) | 0.2053 | 1.004 | 2815 |
+| **this model** | **0.2033** | **0.999** | 2815 |
 
-- RPS < 0.21: **yes** (0.2039, inside the 0.184-0.213 published band)
-- beats the Elo proxy on the same fixtures: **yes on the point estimate**
-  (-0.0009 RPS) but **not significantly** - a paired Diebold-Mariano test
-  (Diebold & Mariano 1995) gives p ~ 0.44, and the paired-bootstrap 95% CI
-  on the difference straddles zero. Read as "matches Elo," not "beats it."
-- within 0.01 RPS of the devigged closing line: **yes** (gap +0.0062) - but
-  that gap *is* significant (DM p < 1e-8, bootstrap CI ~[+0.004, +0.009]):
+- RPS < 0.21: **yes** (0.2033, inside the 0.184-0.213 published band)
+- beats the Elo proxy on the same fixtures: **yes, and significantly** -
+  -0.0020 RPS, paired Diebold-Mariano (Diebold & Mariano 1995) p = 0.038,
+  bootstrap 95% CI [-0.0039, -0.0001] (excludes zero). Turning off the
+  section-10.1 adjustments is what moved this from "matches Elo" (p ~ 0.44
+  with them on) to a real edge.
+- within 0.01 RPS of the devigged closing line: **yes** (gap +0.0056) - but
+  that gap *is* significant (DM p < 1e-8, bootstrap CI ~[+0.004, +0.008]):
   the model is reliably a little worse than the closing line, not level with
   it. This is expected - the closing line is the sharpest public forecast
   there is - and it still clears the design doc's "within 0.01" bar.
 - coverage: 95.5% (the rest are early-season/promoted teams under the
-  `min_matches=8` guard - by design, not a bug; coverage dipped slightly from
-  earlier runs because this window now reaches into the very first weeks of
-  three new seasons at once)
-- calibration error (P(home win), 10 bins): 0.028 - see `artefacts/calibration.png`
-- extended battery (`run_backtest.py` now also prints these): multiclass
-  Brier ~0.599 with a Murphy decomposition of reliability ~0.0015 (very well
-  calibrated) / resolution ~0.051 / uncertainty ~0.650; sharpness ~1.01 nats
+  `min_matches=8` guard - by design, not a bug)
+- calibration error (P(home win), 10 bins): 0.019 - see `artefacts/calibration.png`
+- extended battery (`run_backtest.py` also prints these): multiclass Brier
+  ~0.596 with a Murphy decomposition of reliability ~0.0024 (very well
+  calibrated) / resolution ~0.055 / uncertainty ~0.650; sharpness ~1.02 nats
   of entropy vs 1.099 for a flat 33/33/33 guess (the model commits only
   slightly - football is genuinely high-variance); per-season RPS is stable
   across the window.
@@ -380,16 +387,16 @@ model/
   ratings.py           attack/defence, stat-agnostic, leakage-guarded, squad-value fallback
   dixon_coles.py        tau correction, diagonal inflation, + scoreline grid
   predict.py            fixture -> probabilities, generic lam_mult/mu_mult hook
-  referee.py             section 10.1 rank 1 - tested worse, kept ON (see Milestone 4)
-  rest.py                 section 10.1 rank 2 - tested worse, kept ON
-  travel.py               section 10.1 rank 3 - tested worse, kept ON
+  referee.py             section 10.1 rank 1 - tested worse, OFF (see Milestone 4)
+  rest.py                 section 10.1 rank 2 - tested worse, OFF
+  travel.py               section 10.1 rank 3 - tested worse, OFF
   stadiums.py             team -> (lat, lon), 189 teams, for travel.py
   squad_value.py          section 10.1 rank 4 - value->rating prior fit, not RPS-tested
   injuries.py             PL-only, live-only, cannot be RPS-tested, OFF by default
 evaluate/
   metrics.py            RPS, log loss, calibration
   baselines.py          devig, Elo proxy
-  backtest.py            walk-forward runner (referee/rest/travel ON by default, squad-value OFF)
+  backtest.py            walk-forward runner (referee/rest/travel/squad-value all OFF by default)
   tune.py                 xi sweep + plot, stat comparison
   prediction_log.py       append-only, first-prediction-wins log of published fixtures
   track_record.py         scores prediction_log.py's log against results as they resolve
