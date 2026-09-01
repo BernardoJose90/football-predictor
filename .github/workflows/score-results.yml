@@ -1,0 +1,55 @@
+name: Score results
+
+# Fast Live-record feedback. The weekly run predicts on Thu/Sat mornings -
+# both before the weekend's matches - so without this, results only get scored
+# on the *following* Thursday. This job re-downloads results and re-scores the
+# published prediction log the same evening matches are played. It predicts
+# nothing and never writes the prediction log.
+#
+# Saturday + Sunday late evening UTC (after the last kickoffs settle), plus a
+# Monday-morning mop-up for late results. Also runnable on demand.
+on:
+  schedule:
+    - cron: "30 21 * * 6"
+    - cron: "30 21 * * 0"
+    - cron: "0 8 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: score-results
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r api/requirements.txt
+
+      - name: Refresh results and re-score the live log
+        run: python -m scripts.score_results --eval-start 2025-08-01
+
+      - name: Commit the updated track record
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/track-record.html
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "Update live track record [skip ci]"
+          # The weekly-predictions workflow can land on main while this runs;
+          # rebase our one commit onto it and retry rather than failing.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            echo "push rejected (attempt $attempt) - syncing with origin/main"
+            git pull --rebase --autostash origin main
+          done
+          git push

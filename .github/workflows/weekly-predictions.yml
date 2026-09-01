@@ -47,4 +47,12 @@ jobs:
           git add docs/index.html docs/why.html docs/angles.html docs/track-record.html artefacts/prediction_log.csv
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Auto-update weekend pages [skip ci]"
+          # The score-results workflow (or a manual push) can land on main while
+          # this job runs; rebase our one commit onto it and retry rather than
+          # failing the whole run.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            echo "push rejected (attempt $attempt) - syncing with origin/main"
+            git pull --rebase --autostash origin main
+          done
           git push

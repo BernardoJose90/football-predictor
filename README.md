@@ -311,6 +311,18 @@ Pages site with a shared nav - `/`, `/why.html`, `/angles.html`,
 `/track-record.html`. Running any of the three scripts locally regenerates
 its page the same way CI does.
 
+**Faster Live-record feedback.** The weekly cron predicts Thursday and
+Saturday mornings - both *before* the weekend's kickoffs - so left to that
+schedule, results only get scored on the following Thursday. A second,
+scoring-only workflow (`.github/workflows/score-results.yml`,
+`scripts/score_results.py`) closes the gap: Saturday and Sunday late evening
+plus Monday morning UTC it re-downloads results (the top leagues land on
+football-data.co.uk within hours of full time), rebuilds the match table, and
+re-runs `scripts/track_record.py`. It predicts nothing and never writes
+`prediction_log.csv`, so it can't restate a forecast with hindsight - the
+"first prediction wins" rule is untouched. Both workflows now rebase-and-retry
+their push, so whichever lands second on `main` no longer fails the run.
+
 **Unattended operation.** Meant to run a whole season with almost no
 touching: dependencies are pinned exactly (`requirements.txt`) so an upstream
 release can't break a mid-season run, and `scripts.predict_upcoming` has a
