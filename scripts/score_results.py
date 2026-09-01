@@ -20,13 +20,21 @@ aliases -> normalise -> join xG), minus everything to do with forecasting.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
+from pathlib import Path
 
 import config
 from ingest import historical, understat
 from normalise import build_aliases, schema
 from normalise.teams import reload_cache
 from scripts import track_record
+
+# Any "YYYY-MM-DD HH:MM..."/"YYYY-MM-DDTHH:MM..." stamp in the rendered page -
+# the build time and first-logged time. Date-only strings (fixture dates, the
+# scored-window span, per-month keys) are left alone: those move only when the
+# underlying data does.
+_TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?: UTC|Z)?")
 
 
 def refresh_results() -> None:
@@ -51,14 +59,35 @@ def refresh_results() -> None:
     print(f"rebuilt {len(matches)} matches  |  {span}", file=sys.stderr)
 
 
+def _unchanged_but_for_timestamps(a: str, b: str) -> bool:
+    return _TIMESTAMP_RE.sub("", a) == _TIMESTAMP_RE.sub("", b)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--eval-start", default="2025-08-01",
                     help="passed straight through to scripts.track_record")
     args = ap.parse_args(argv)
 
+    html_path = Path(track_record.HTML_OUT)
+    before = html_path.read_text(encoding="utf-8") if html_path.exists() else None
+
     refresh_results()
-    return track_record.main(["--eval-start", args.eval_start])
+    rc = track_record.main(["--eval-start", args.eval_start])
+
+    # Nothing new resolved since the committed page: put the old file back so
+    # the workflow's "git diff --staged --quiet" sees no change and skips the
+    # commit. Without this, every scheduled run would commit a bare timestamp
+    # bump. A genuine change - a newly scored fixture, a late market price, the
+    # validation backtest shifting as results enter the training data - still
+    # gets through.
+    if rc == 0 and before is not None:
+        after = html_path.read_text(encoding="utf-8")
+        if _unchanged_but_for_timestamps(before, after):
+            html_path.write_text(before, encoding="utf-8")
+            print("no new results since last run - track record unchanged", file=sys.stderr)
+
+    return rc
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ def test_main_refreshes_then_scores_without_touching_the_log(monkeypatch, tmp_pa
     calls = []
 
     monkeypatch.setattr(sr, "refresh_results", lambda: calls.append("refresh"))
+    monkeypatch.setattr(sr.track_record, "HTML_OUT", tmp_path / "track-record.html")
 
     def fake_track_record_main(argv):
         calls.append(("track_record", tuple(argv)))
@@ -30,6 +31,38 @@ def test_main_refreshes_then_scores_without_touching_the_log(monkeypatch, tmp_pa
     assert calls == ["refresh", ("track_record", ("--eval-start", "2025-08-01"))]
     if before is not None:
         assert prediction_log.LOG_PATH.read_bytes() == before
+
+
+_PAGE = "<html>built {ts} UTC<script>const DATA = {{\"generated\":\"{ts} UTC\",\"n_scored\":{n}}};</script></html>"
+
+
+def test_timestamp_only_change_is_reverted(monkeypatch, tmp_path):
+    html = tmp_path / "track-record.html"
+    html.write_text(_PAGE.format(ts="2026-09-06 21:30", n=54), encoding="utf-8")
+    original = html.read_text(encoding="utf-8")
+
+    monkeypatch.setattr(sr, "refresh_results", lambda: None)
+    monkeypatch.setattr(sr.track_record, "HTML_OUT", html)
+    monkeypatch.setattr(sr.track_record, "main",
+                        lambda argv: (html.write_text(_PAGE.format(ts="2026-09-07 08:00", n=54),
+                                                      encoding="utf-8"), 0)[1])
+
+    assert sr.main([]) == 0
+    assert html.read_text(encoding="utf-8") == original  # bare timestamp bump undone
+
+
+def test_real_change_is_kept(monkeypatch, tmp_path):
+    html = tmp_path / "track-record.html"
+    html.write_text(_PAGE.format(ts="2026-09-06 21:30", n=54), encoding="utf-8")
+
+    monkeypatch.setattr(sr, "refresh_results", lambda: None)
+    monkeypatch.setattr(sr.track_record, "HTML_OUT", html)
+    monkeypatch.setattr(sr.track_record, "main",
+                        lambda argv: (html.write_text(_PAGE.format(ts="2026-09-07 08:00", n=61),
+                                                      encoding="utf-8"), 0)[1])
+
+    assert sr.main([]) == 0
+    assert '"n_scored":61' in html.read_text(encoding="utf-8")  # new fixtures kept
 
 
 def test_refresh_results_rebuilds_matches_parquet(monkeypatch, tmp_path, synthetic_matches):
