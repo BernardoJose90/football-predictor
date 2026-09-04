@@ -74,7 +74,7 @@
 <header>
   <div class="header-top">
     <div>
-      <p class="eyebrow">Model vs. market · walk-forward Poisson</p>
+      <p class="eyebrow" id="eyebrow">Model vs. market · walk-forward Poisson</p>
       <h1>Weekend Coupon</h1>
     </div>
     <div class="date-range num" id="date-range">28–31 Aug 2026</div>
@@ -89,7 +89,7 @@
 </header>
 
 <main id="main">
-  <p class="intro">
+  <p class="intro" id="intro-model">
     Every fixture below got two forecasts: <strong>ours</strong>, built from each team's
     recent attack and defence (expected goals where available, shots on target
     otherwise), with a correction that boosts every draw scoreline — not just
@@ -105,6 +105,17 @@
     usually knows something we don't — a signing, team news that isn't in
     the numbers yet.
   </p>
+  <p class="intro" id="intro-market" hidden>
+    The headline number on every fixture is <strong>the bookmakers' own price</strong>,
+    with the margin stripped out — the sharpest public read there is on who wins.
+    From that same price we solve for the expected goals each side is implied to
+    score and read off a <strong>likely scoreline</strong>, tightened by the
+    bookmakers' over/under 2.5 line where it's quoted. Underneath, in the thin
+    bar, is <strong>our own ratings model</strong> — recent attack and defence,
+    expected goals where available — shown purely for contrast: where it pulls
+    well away from the price (flagged ±pt), it's usually the model rating form the
+    market has marked down for a reason the numbers can't see.
+  </p>
 
   <div class="stats" id="stats"></div>
 
@@ -112,7 +123,17 @@
 </main>
 
 <footer>
-  <p>
+  <p id="foot-market" hidden>
+    <strong style="color:var(--ink)">Not a betting recommendation.</strong> Headline
+    figures are pre-match bookmaker prices with the margin removed by simple
+    (multiplicative) devigging; the scoreline comes from a Dixon–Coles Poisson grid
+    (1997) fitted so its own 1X2 and over/under 2.5 probabilities match that price.
+    Reconstructing a grid from a price is lossy — treat the likely score as the
+    centre of a wide range, not a call. The comparison model lands about 1% (RPS)
+    worse than the closing line, which is expected: the closing line is the
+    strongest public forecast there is. Full method in the project README.
+  </p>
+  <p id="foot-model">
     <strong style="color:var(--ink)">Not a betting recommendation.</strong> This model rates
     teams from historical scoring data and prices matches with a Poisson-based method
     (Dixon &amp; Coles, 1997) plus a whole-diagonal draw correction. Referee, rest-day and
@@ -132,6 +153,22 @@
 
 <script>
   const DATA = __DATA_JSON__;
+
+  // Which forecast is the headline: 'market' (bookmakers' devigged price) or
+  // 'model' (this repo's ratings). Set per fixture by scripts.render_coupon.
+  const SOURCE = (DATA.find(m => !m.unrated) || {}).source || 'model';
+  const HEADLINE_LABEL = SOURCE === 'market' ? 'Market' : 'Model';
+  const COMPARE_LABEL = SOURCE === 'market' ? 'Our model' : 'Market';
+  if (SOURCE === 'market') {
+    const eb = document.getElementById('eyebrow');
+    if (eb) eb.textContent = "The bookmakers' price · our model alongside";
+  }
+  if (SOURCE === 'market') {
+    document.getElementById('intro-model').hidden = true;
+    document.getElementById('intro-market').hidden = false;
+    document.getElementById('foot-model').hidden = true;
+    document.getElementById('foot-market').hidden = false;
+  }
 
   const LEAGUE_ORDER = [];
   for (const m of DATA) if (!LEAGUE_ORDER.includes(m.league)) LEAGUE_ORDER.push(m.league);
@@ -163,10 +200,11 @@
     if (d > biggestGap.pt) biggestGap = { pt: d, fixture: `${m.home} v ${m.away}` };
   }
   const stats = [
-    { n: rated.length, l: 'Fixtures rated' },
+    { n: rated.length, l: SOURCE === 'market' ? 'Fixtures priced' : 'Fixtures rated' },
     { n: LEAGUE_ORDER.length, l: 'Leagues' },
-    { n: unratedCount, l: 'Not enough history' },
-    { n: Math.round(biggestGap.pt) + 'pt', l: 'Biggest model/market gap' },
+    { n: unratedCount, l: SOURCE === 'market' ? 'No price yet' : 'Not enough history' },
+    { n: Math.round(biggestGap.pt) + 'pt',
+      l: SOURCE === 'market' ? 'Biggest model/price gap' : 'Biggest model/market gap' },
   ];
   const statsEl = document.getElementById('stats');
   for (const s of stats) {
@@ -224,7 +262,8 @@
       let gapBadge = '';
       if (m.mHome !== undefined) {
         const d = Math.max(Math.abs(m.pHome - m.mHome), Math.abs(m.pDraw - m.mDraw), Math.abs(m.pAway - m.mAway));
-        if (d >= 12) gapBadge = `<span class="gap-badge">±${Math.round(d)}pt vs market</span>`;
+        const vs = SOURCE === 'market' ? 'vs our model' : 'vs market';
+        if (d >= 12) gapBadge = `<span class="gap-badge">±${Math.round(d)}pt ${vs}</span>`;
       }
 
       card.className = 'fixture';
@@ -238,12 +277,12 @@
           </div>
         </div>
         <div class="prob-row">
-          <span class="prob-label">Model</span>
+          <span class="prob-label">${HEADLINE_LABEL}</span>
           ${probBar(m.pHome, m.pDraw, m.pAway, false)}
         </div>
         ${m.mHome !== undefined ? `
         <div class="prob-row">
-          <span class="prob-label">Market</span>
+          <span class="prob-label">${COMPARE_LABEL}</span>
           ${probBar(m.mHome, m.mDraw, m.mAway, true)}
         </div>` : ''}
         <div class="legend-inline">

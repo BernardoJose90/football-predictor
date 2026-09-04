@@ -63,6 +63,11 @@ def append(records: list[dict], path=LOG_PATH, logged_at=None) -> int:
         if r.get("unrated") or not r.get("match_id") or r["match_id"] in seen:
             continue
         seen.add(r["match_id"])
+        # The "model" columns always hold the ratings model's own take. On a
+        # --source market card the headline p_* is the bookmakers' price, so
+        # the model's number is carried separately as model_p_* - prefer that
+        # when present so the Ledger keeps scoring the model, not the market
+        # twice. On a normal model card model_p_* is absent and p_* is it.
         new_rows.append({
             "logged_at": logged_at,
             "match_id": r["match_id"],
@@ -70,10 +75,10 @@ def append(records: list[dict], path=LOG_PATH, logged_at=None) -> int:
             "kickoff": r.get("date"),
             "home_team": r.get("home_team"),
             "away_team": r.get("away_team"),
-            "likely_score": r.get("likely_score"),
-            "model_p_home": r.get("p_home"),
-            "model_p_draw": r.get("p_draw"),
-            "model_p_away": r.get("p_away"),
+            "likely_score": r.get("model_likely_score", r.get("likely_score")),
+            "model_p_home": r.get("model_p_home", r.get("p_home")),
+            "model_p_draw": r.get("model_p_draw", r.get("p_draw")),
+            "model_p_away": r.get("model_p_away", r.get("p_away")),
             "market_p_home": r.get("market_p_home"),
             "market_p_draw": r.get("market_p_draw"),
             "market_p_away": r.get("market_p_away"),

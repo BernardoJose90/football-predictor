@@ -32,7 +32,12 @@ jobs:
         run: python -m pytest -q
 
       - name: Render this weekend's predictions
-        run: python -m scripts.render_coupon
+        # --source market: the Weekend Coupon leads with the bookmakers' own
+        # devigged price (who wins + a scoreline grid fitted to it), with our
+        # ratings model shown underneath for comparison. predict_upcoming still
+        # runs in model mode, so The Working / The Angles / The Ledger below
+        # (all model-vs-market) are unaffected.
+        run: python -m scripts.render_coupon --source market
 
       - name: Render the explainer, the angles and the track record
         run: |

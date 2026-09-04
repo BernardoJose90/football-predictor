@@ -136,8 +136,55 @@ def main(argv=None) -> int:
     # ---- extended battery ---------------------------------------------------
     if len(rated) >= 2:
         _print_extended(rated, dv_scored, elo_scored)
+
+    # ---- market scoreline reconstruction ----------------------------------
+    # The market's 1X2 RPS is already the "devig closing line" row above. This
+    # block scores the *scoreline grid* fitted to that price (+ the closing
+    # Over/Under 2.5 line): correct-score hit rate and Over/Under 2.5 Brier,
+    # next to the model's, on the same fixtures the model rated.
+    if len(rated):
+        _print_market_grid(window, rated)
+
     print("=================================================\n")
     return 0
+
+
+def _score_hit_rate(df: pd.DataFrame) -> float:
+    got = (df["home_goals"].astype(int).astype(str) + "-"
+           + df["away_goals"].astype(int).astype(str))
+    return float((df["likely_score"].astype(str) == got).mean())
+
+
+def _ou_brier(df: pd.DataFrame) -> float:
+    actual_over = ((df["home_goals"] + df["away_goals"]) > 2.5).astype(float)
+    return float(((df["p_over_2_5"] - actual_over) ** 2).mean())
+
+
+def _print_market_grid(window: pd.DataFrame, rated: pd.DataFrame) -> None:
+    from evaluate import baselines
+
+    if not {"close_over_2_5", "close_under_2_5"}.issubset(window.columns):
+        print("\n----------  market scoreline grid  -------------")
+        print("  dataset has no closing Over/Under columns - rebuild with "
+              "`python -m scripts.build_dataset` to enable this scorecard")
+        return
+
+    grid = baselines.market_grid_frame(window)
+    grid = grid[grid["p_home"].notna() & grid["match_id"].isin(set(rated["match_id"]))]
+    m = rated[rated["p_over_2_5"].notna()]
+    m = m[m["match_id"].isin(set(grid["match_id"]))]
+    grid = grid[grid["match_id"].isin(set(m["match_id"]))]
+    print("\n----------  market scoreline grid  -------------")
+    if len(grid) < 2:
+        print("  not enough fixtures with a closing Over/Under line to score")
+        return
+    print(f"n (model & market grid, same fixtures): {len(grid)}")
+    print(f"correct-score hit rate : market {_score_hit_rate(grid):.3f}   "
+          f"model {_score_hit_rate(m):.3f}")
+    print(f"Over/Under 2.5 Brier   : market {_ou_brier(grid):.4f}   "
+          f"model {_ou_brier(m):.4f}   (lower better)")
+    ou_cov = window[["close_over_2_5", "close_under_2_5"]].notna().all(axis=1).mean()
+    print(f"closing O/U 2.5 coverage in window: {ou_cov:.1%}")
 
 
 def _aligned_rps(rated: pd.DataFrame, other: pd.DataFrame) -> tuple:

@@ -238,6 +238,38 @@ Fixed by weighting on FPL's own `now_cost` (transfer-market price) instead,
 which reputable players keep even while absent. Regression test:
 `test_season_long_absentee_with_zero_points_still_weighted_by_cost`.
 
+## Pricing off the bookmakers instead of the model
+
+`model/market_predict.py` + `scripts.predict_upcoming --source market`. The
+model lands ~1% RPS worse than the devigged closing line and always will - the
+closing line is the sharpest public forecast there is. This path stops
+competing with it and just *reports* it: `devig()` the closing 1X2 odds for
+who-wins / favourite, then solve for the `(lam, mu)` whose Dixon-Coles grid
+reproduces that price (and the closing Over/Under 2.5 line, where the feed
+carries one - `normalise/schema.py` now keeps `close_over_2_5` /
+`close_under_2_5`) for the likely score, over 2.5 and BTTS. `rho`/`delta` stay
+at their configured constants; only `lam`/`mu` are fit. With `rho`/`delta`
+fixed the 1X2 fit is an exact inversion (round-trip test to 1e-6); the
+Over/Under residual, when included, is a weighted extra term so the grid
+matches both prices as closely as one `(lam, mu)` pair can.
+
+**The Weekend Coupon now leads with this** (`render_coupon --source market`,
+wired into the weekly workflow): the bookmakers' devigged price is the
+headline bar and likely score, with the ratings model shown underneath for
+comparison. `predict_upcoming` itself still runs in **model mode** for the
+weekly job, so The Working, The Angles and The Ledger (all model-vs-market)
+are unchanged - only the Coupon's emphasis flipped. `predict_upcoming
+--source market` is the standalone "no model at all" mode: it needs only the
+fixtures feed and its odds, attaching the model as a `model_p_*` comparison
+only when a dataset happens to be loaded.
+
+`scripts.run_backtest` prints a **market scoreline grid** scorecard: the
+reconstructed grid's correct-score hit rate and Over/Under 2.5 Brier next to
+the model's, on the same fixtures (`evaluate.baselines.market_grid_frame`).
+On the 2025-08-01+ window the two are close - correct-score 13.2% vs 13.6%,
+O/U 2.5 Brier 0.2425 (market, fitted to the line) vs 0.2478 (model). The 1X2
+RPS is just the "devig closing line" row already in that report.
+
 ## Public-facing apps: the weekly page, the explainer, and the track record
 
 Three things built on top of the model, all reading `scripts.predict_upcoming`'s

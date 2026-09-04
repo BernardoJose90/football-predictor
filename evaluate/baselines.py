@@ -51,6 +51,52 @@ def devig_frame(matches: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def market_grid_frame(matches: pd.DataFrame, *, rho=None, delta=None) -> pd.DataFrame:
+    """Reconstruct a Dixon-Coles scoreline grid from the closing odds per row.
+
+    Fits (lam, mu) to the devigged closing 1X2 price, plus the devigged
+    closing Over/Under 2.5 line where ``close_over_2_5`` / ``close_under_2_5``
+    are present (see model.market_predict). Adds ``p_home/p_draw/p_away``
+    (verbatim devig), ``likely_score``, ``p_over_2_5`` and ``p_btts`` (from
+    the fitted grid). Rows without complete closing 1X2 odds get NaN / None.
+
+    Unlike the model's grid this needs no walk-forward: the closing line is
+    already the market's pre-kickoff view, so every row is scored as-is.
+    """
+    import config as _config
+    from model.market_predict import market_prediction_from_odds
+
+    rho = _config.DEFAULT_RHO if rho is None else rho
+    delta = _config.DEFAULT_DELTA if delta is None else delta
+
+    out = matches.copy()
+    for col in ("p_home", "p_draw", "p_away", "p_over_2_5", "p_btts"):
+        out[col] = np.nan
+    out["likely_score"] = None
+
+    have = out[["close_home", "close_draw", "close_away"]].notna().all(axis=1)
+    has_ou = have & out.get("close_over_2_5", pd.Series(index=out.index, dtype=float)).notna() \
+        & out.get("close_under_2_5", pd.Series(index=out.index, dtype=float)).notna()
+
+    for i in out.index[have]:
+        r = out.loc[i]
+        oo = r["close_over_2_5"] if has_ou.get(i, False) else None
+        ou = r["close_under_2_5"] if has_ou.get(i, False) else None
+        try:
+            p = market_prediction_from_odds(
+                r["home_team"], r["away_team"],
+                r["close_home"], r["close_draw"], r["close_away"], oo, ou,
+                rho=rho, delta=delta,
+            )
+        except (ValueError, RuntimeError):
+            continue
+        out.at[i, "p_home"], out.at[i, "p_draw"], out.at[i, "p_away"] = (
+            p["p_home"], p["p_draw"], p["p_away"])
+        out.at[i, "p_over_2_5"], out.at[i, "p_btts"] = p["p_over_2_5"], p["p_btts"]
+        out.at[i, "likely_score"] = p["likely_score"]
+    return out
+
+
 # --------------------------------------------------------------------------
 # 2. Elo baseline (self-contained, walk-forward)
 # --------------------------------------------------------------------------

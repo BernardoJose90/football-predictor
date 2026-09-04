@@ -29,6 +29,39 @@ def test_build_payload_rated_fixture_has_full_fields(tmp_path):
     assert rec["note"] == "rest=6d/6d"
 
 
+def test_build_payload_market_source_swaps_headline_and_comparison(tmp_path):
+    csv = _write_csv(tmp_path, [{
+        "league": "Premier League", "date": "2026-08-29 15:00:00",
+        "home_team": "Arsenal", "away_team": "Chelsea", "unrated": False,
+        "home_pred": 1.8, "away_pred": 1.1, "likely_score": "2-1",
+        "p_home": 0.55, "p_draw": 0.25, "p_away": 0.20,
+        "p_over_2_5": 0.6, "p_btts": 0.5, "adj_note": "",
+        "market_p_home": 0.50, "market_p_draw": 0.27, "market_p_away": 0.23,
+        "market_likely_score": "1-1", "market_home_pred": 1.4, "market_away_pred": 1.2,
+        "market_p_over_2_5": 0.55, "market_p_btts": 0.52,
+    }])
+    rec = build_payload(csv, source="market")[0]
+    assert rec["source"] == "market"
+    assert rec["pHome"] == 50.0 and rec["score"] == "1-1"   # headline = market
+    assert rec["over25"] == 55.0                            # from the market grid
+    assert rec["mHome"] == 55.0                             # comparison = model
+    # and the default is unchanged
+    assert build_payload(csv)[0]["pHome"] == 55.0
+
+
+def test_build_payload_market_source_falls_back_to_model_when_no_price(tmp_path):
+    csv = _write_csv(tmp_path, [{
+        "league": "Serie A", "date": "2026-08-30 18:00:00",
+        "home_team": "Milan", "away_team": "Roma", "unrated": False,
+        "home_pred": 1.5, "away_pred": 1.2, "likely_score": "1-1",
+        "p_home": 0.4, "p_draw": 0.3, "p_away": 0.3,
+        "p_over_2_5": 0.5, "p_btts": 0.5, "adj_note": "",
+        "market_p_home": float("nan"), "market_p_draw": float("nan"), "market_p_away": float("nan"),
+    }])
+    rec = build_payload(csv, source="market")[0]
+    assert rec["pHome"] == 40.0 and "mHome" not in rec
+
+
 def test_build_payload_unrated_fixture_is_minimal(tmp_path):
     csv = _write_csv(tmp_path, [{
         "league": "La Liga", "date": "2026-08-30 16:00:00",

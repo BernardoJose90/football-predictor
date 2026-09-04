@@ -22,6 +22,8 @@ Output columns (one row per played match):
     away_xg      float or NaN
     referee      str or NaN
     close_home / close_draw / close_away   decimal closing odds (benchmark only)
+    close_over_2_5 / close_under_2_5       decimal closing Over/Under 2.5 odds
+                                          (or NaN) - feeds the market grid fit
 
 Anything that cannot be parsed into a played match with a valid result is
 dropped, with a count reported.
@@ -47,6 +49,19 @@ _ODDS_SETS = [
     ("PSH", "PSD", "PSA"),
     ("AvgH", "AvgD", "AvgA"),
     ("B365H", "B365D", "B365A"),
+]
+
+# Over/Under 2.5 total-goals odds, same "closing first, then pre-close"
+# preference as the 1X2 sets above. Only the "over 2.5" then "under 2.5"
+# columns of each pair. Used by the market-reconstruction path
+# (model/market_predict.py) to pin the fitted scoreline grid's total.
+_OU_SETS = [
+    ("PC>2.5", "PC<2.5"),
+    ("AvgC>2.5", "AvgC<2.5"),
+    ("B365C>2.5", "B365C<2.5"),
+    ("P>2.5", "P<2.5"),
+    ("Avg>2.5", "Avg<2.5"),
+    ("B365>2.5", "B365<2.5"),
 ]
 
 
@@ -111,6 +126,17 @@ def _pick_closing_odds(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({"close_home": home, "close_draw": draw, "close_away": away})
 
 
+def _pick_closing_ou(df: pd.DataFrame) -> pd.DataFrame:
+    over = pd.Series(np.nan, index=df.index)
+    under = pd.Series(np.nan, index=df.index)
+    for o, u in _OU_SETS:
+        if o in df.columns and u in df.columns:
+            vals_o, vals_u = _to_num(df[o]), _to_num(df[u])
+            ok = vals_o.notna() & vals_u.notna() & over.isna()
+            over.loc[ok], under.loc[ok] = vals_o[ok], vals_u[ok]
+    return pd.DataFrame({"close_over_2_5": over, "close_under_2_5": under})
+
+
 def normalise(raw: pd.DataFrame) -> pd.DataFrame:
     df = raw.copy()
 
@@ -146,7 +172,7 @@ def normalise(raw: pd.DataFrame) -> pd.DataFrame:
 
     out["referee"] = df["Referee"].astype(str).str.strip() if "Referee" in df.columns else np.nan
 
-    out = pd.concat([out, _pick_closing_odds(df)], axis=1)
+    out = pd.concat([out, _pick_closing_odds(df), _pick_closing_ou(df)], axis=1)
 
     # Keep only fully-formed played matches.
     before = len(out)

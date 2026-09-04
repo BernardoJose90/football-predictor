@@ -14,6 +14,8 @@ def _raw_row(**overrides):
         "PSCH": "1.9", "PSCD": "3.6", "PSCA": "4.2",
         "AvgCH": "1.85", "AvgCD": "3.55", "AvgCA": "4.1",
         "B365CH": "1.9", "B365CD": "3.6", "B365CA": "4.3",
+        "PC>2.5": "1.95", "PC<2.5": "1.90",
+        "Avg>2.5": "2.0", "Avg<2.5": "1.85",
     }
     row.update(overrides)
     return row
@@ -54,6 +56,24 @@ def test_falls_back_to_average_closing_when_pinnacle_missing():
     out = schema.normalise(raw)
     r = out.iloc[0]
     assert r["close_home"] == pytest.approx(1.85)
+
+
+def test_prefers_pinnacle_closing_over_under():
+    raw = pd.DataFrame([_raw_row()])
+    r = schema.normalise(raw).iloc[0]
+    assert r["close_over_2_5"] == pytest.approx(1.95)
+    assert r["close_under_2_5"] == pytest.approx(1.90)
+
+
+def test_falls_back_to_average_closing_over_under_then_nan():
+    raw = pd.DataFrame([_raw_row(**{"PC>2.5": "", "PC<2.5": ""})])
+    r = schema.normalise(raw).iloc[0]
+    assert r["close_over_2_5"] == pytest.approx(2.0)
+
+    raw2 = pd.DataFrame([_raw_row(**{"PC>2.5": "", "PC<2.5": "",
+                                     "Avg>2.5": "", "Avg<2.5": ""})])
+    r2 = schema.normalise(raw2).iloc[0]
+    assert pd.isna(r2["close_over_2_5"]) and pd.isna(r2["close_under_2_5"])
 
 
 def test_drops_unplayed_matches():

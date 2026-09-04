@@ -1,6 +1,14 @@
 """Predict real, not-yet-played fixtures for the next few days.
 
     python -m scripts.predict_upcoming [--days 4] [--stat sot] [--refresh]
+    python -m scripts.predict_upcoming --source market   # price off the bookies, not our ratings
+
+With ``--source market`` the repo's attack/defence ratings are skipped
+entirely: each fixture's devigged 1X2 price is the who-wins answer, and a
+Dixon-Coles scoreline grid is fitted to reproduce that price (plus the
+Over/Under 2.5 line where the fixtures feed carries one) for the likely
+score, P(over 2.5) and BTTS. See model/market_predict.py. Every section-10.1
+adjustment flag below is ignored in that mode.
 
 Pulls this weekend's card from football-data.co.uk's free fixtures.csv
 (ingest/fixtures.py), builds each league's ratings as of today from
@@ -46,6 +54,7 @@ from ingest import fpl as fpl_mod
 from ingest import historical
 from ingest import squad_value as squad_value_mod
 from model.injuries import injury_factor
+from model.market_predict import devig_over_under, market_prediction
 from model.predict import expected_goals, predict_match
 from model.ratings import build_ratings
 from model.referee import build_referee_factors
@@ -144,6 +153,148 @@ def _load_matches() -> pd.DataFrame:
     return df
 
 
+def _publish(results: list[dict], args, *, trailer: str = "") -> int:
+    """Sanity-gate, write the CSV + rich JSON, and (optionally) append the log.
+
+    Shared by the model and the market path so both produce identical output
+    files and go through the same "never publish a physically broken row" gate.
+    """
+    rated_n = sum(1 for r in results if not r.get("unrated"))
+    msgs, bad_ids = _sanity_check(results)
+    if msgs:
+        print("\nsanity check:", file=sys.stderr)
+        for m in msgs:
+            print(f"  {m}", file=sys.stderr)
+    if bad_ids:
+        limit = max(3, int(0.15 * rated_n))
+        if len(bad_ids) > limit:
+            raise SystemExit(f"sanity check: {len(bad_ids)}/{rated_n} rated fixtures are "
+                             f"physically broken (limit {limit}) - not publishing this card, "
+                             f"something is wrong upstream")
+        results = [r for r in results if r.get("match_id") not in bad_ids]
+        print(f"  -> dropped {len(bad_ids)} broken fixture(s) from the card", file=sys.stderr)
+
+    out = pd.DataFrame(results)
+    out_path = args.out or (config.ARTEFACTS / "upcoming_predictions.csv")
+    out.drop(columns=["adjustments"], errors="ignore").to_csv(out_path, index=False)
+
+    def _jsonable(rec: dict) -> dict:
+        d = dict(rec)
+        if isinstance(d.get("date"), pd.Timestamp):
+            d["date"] = d["date"].strftime("%Y-%m-%dT%H:%M")
+        return d
+
+    json_path = Path(out_path).with_suffix(".json")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump([_jsonable(r) for r in results], fh, default=str, indent=2)
+    print(f"-> {out_path}")
+    print(f"-> {json_path}")
+
+    if args.log_predictions:
+        from evaluate import prediction_log
+        n_new = prediction_log.append(results)
+        print(f"-> prediction_log.csv (+{n_new} new fixture(s))")
+
+    if trailer:
+        print(trailer)
+    return 0
+
+
+def _model_lookup(fx: pd.DataFrame, matches, args, as_of) -> dict:
+    """Model p_home/p_draw/p_away + likely score per fixture, keyed
+    ``(div, home, away)`` - the comparison column on a --source market card.
+
+    No section-10.1 adjustments are ever applied here: the market path
+    ignores them by definition, and this is only ever the "what would our
+    own ratings say" reference. Returns ``{}`` if no dataset is loaded.
+    """
+    if matches is None:
+        return {}
+    out: dict = {}
+    for div, group in fx.groupby("div"):
+        league_matches = matches[matches["div"] == div]
+        stats_to_try = ((config.AUTO_STAT_PRIMARY, config.AUTO_STAT_FALLBACK)
+                        if args.stat == "auto" else (args.stat,))
+        snap = None
+        for candidate_stat in stats_to_try:
+            try:
+                snap = build_ratings(league_matches, as_of=as_of, stat=candidate_stat,
+                                     xi=args.xi, min_matches=config.DEFAULT_MIN_MATCHES)
+                break
+            except ValueError:
+                continue
+        if snap is None:
+            continue
+        for row in group.itertuples(index=False):
+            pred = predict_match(snap, row.home_team, row.away_team,
+                                 rho=args.rho, delta=args.delta)
+            if pred is not None:
+                out[(div, row.home_team, row.away_team)] = pred
+    return out
+
+
+def _predict_from_market(fx: pd.DataFrame, market: dict, over_market: dict,
+                         model_lookup: dict | None = None,
+                         *, rho: float, delta: float) -> list[dict]:
+    """Price every fixture off the bookmakers' odds - no ratings, no adjustments.
+
+    ``market`` / ``over_market`` are keyed ``(div, home, away)``: devigged 1X2
+    probabilities and P(over 2.5) respectively, both built in main()'s fixtures
+    pass. A fixture with no 1X2 price is emitted as ``unrated`` (same as a team
+    with too little history in the model path) rather than guessed at.
+    ``model_lookup`` (see :func:`_model_lookup`) attaches the model's own take
+    as ``model_p_*`` for the page's comparison column, when a dataset is loaded.
+    """
+    model_lookup = model_lookup or {}
+    results: list[dict] = []
+    for div, group in fx.groupby("div"):
+        print(f"--- {config.LEAGUES.get(div, div)} ---")
+        for row in group.sort_values("date").itertuples(index=False):
+            when = row.date.strftime("%a %d %b %H:%M") if pd.notna(row.date) else "?"
+            mkt = market.get((div, row.home_team, row.away_team))
+            if not mkt:
+                print(f"  {when}  {row.home_team:20s} v {row.away_team:20s}  "
+                      f"NO MARKET PRICE (fixture carries no 1X2 odds yet)")
+                results.append({"league": row.league, "date": row.date,
+                                "home_team": row.home_team, "away_team": row.away_team,
+                                "unrated": True})
+                continue
+            p_over = over_market.get((div, row.home_team, row.away_team))
+            try:
+                pred = market_prediction(row.home_team, row.away_team,
+                                         mkt["p_home"], mkt["p_draw"], mkt["p_away"], p_over,
+                                         rho=rho, delta=delta)
+            except (ValueError, RuntimeError) as exc:
+                print(f"  {when}  {row.home_team:20s} v {row.away_team:20s}  "
+                      f"FIT FAILED ({exc})")
+                results.append({"league": row.league, "date": row.date,
+                                "home_team": row.home_team, "away_team": row.away_team,
+                                "unrated": True})
+                continue
+            ou_note = f"O/U 2.5 fitted ({p_over*100:.0f}% over)" if p_over is not None else "1X2 only"
+            print(f"  {when}  {row.home_team:20s} v {row.away_team:20s}  "
+                  f"market: {pred['p_home']*100:4.1f}% / {pred['p_draw']*100:4.1f}% / "
+                  f"{pred['p_away']*100:4.1f}%  (likely {pred['likely_score']})   [{ou_note}]")
+            rec = {"league": row.league, "date": row.date, "home_team": row.home_team,
+                   "away_team": row.away_team, "unrated": False,
+                   "match_id": schema.make_match_id(div, row.date, row.home_team, row.away_team),
+                   "lam_mult": 1.0, "mu_mult": 1.0, "adj_note": "", "adjustments": [],
+                   "stat_used": "market",
+                   **pred,
+                   "market_p_home": mkt["p_home"], "market_p_draw": mkt["p_draw"],
+                   "market_p_away": mkt["p_away"],
+                   "market_likely_score": pred["likely_score"],
+                   "market_p_over_2_5": pred["p_over_2_5"], "market_p_btts": pred["p_btts"]}
+            mp = model_lookup.get((div, row.home_team, row.away_team))
+            if mp:
+                rec.update({"model_p_home": mp["p_home"], "model_p_draw": mp["p_draw"],
+                            "model_p_away": mp["p_away"], "model_likely_score": mp["likely_score"],
+                            "model_home_pred": mp["home_pred"], "model_away_pred": mp["away_pred"]})
+            results.append(rec)
+        print()
+    return results
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--days", type=int, default=4, help="lookahead window from --start")
@@ -153,6 +304,13 @@ def main(argv=None) -> int:
                          "matches - useful for re-predicting a specific past matchday, e.g. "
                          "one the results feed hasn't posted yet even though the fixtures.csv "
                          "listing still carries it")
+    ap.add_argument("--source", choices=("model", "market"), default="model",
+                    help="'model' (default): this repo's attack/defence ratings + Dixon-Coles. "
+                         "'market': skip the ratings entirely and price every fixture off the "
+                         "bookmakers' own devigged odds - the 1X2 price for who-wins, and a "
+                         "scoreline grid fitted to reproduce that price (plus Over/Under 2.5 "
+                         "where the feed carries it) for the likely score / over / BTTS. "
+                         "Every section-10.1 adjustment flag is ignored in this mode.")
     ap.add_argument("--stat", choices=config.STAT_CHOICES, default=config.DEFAULT_STAT)
     ap.add_argument("--xi", type=float, default=config.DEFAULT_XI)
     ap.add_argument("--rho", type=float, default=config.DEFAULT_RHO)
@@ -230,7 +388,18 @@ def main(argv=None) -> int:
         except Exception as exc:  # noqa: BLE001 - a live third-party API call; degrade, don't crash
             print(f"note: could not fetch FPL data ({exc}). Continuing without injuries.", file=sys.stderr)
 
-    matches = _rebuild_dataset() if args.refresh else _load_matches()
+    if args.refresh:
+        matches = _rebuild_dataset()
+    elif args.source == "market":
+        # The market path needs no rating history - only the fixtures feed and
+        # its odds. Load the dataset if it's there (a --refresh still re-seeds
+        # team aliases for newly promoted sides), but don't require it.
+        try:
+            matches = _load_matches()
+        except SystemExit:
+            matches = None
+    else:
+        matches = _load_matches()
 
     raw_fixtures = fixtures_mod.upcoming(leagues=set(config.LEAGUES), start=today, end=end)
     if raw_fixtures.empty:
@@ -244,10 +413,17 @@ def main(argv=None) -> int:
     # weekend, and --refresh (which re-seeds teams.yaml from the fresh CSVs)
     # is almost always the actual fix.
     odds_cols = [("PSH", "PSD", "PSA"), ("B365H", "B365D", "B365A"), ("AvgH", "AvgD", "AvgA")]
+    # Over/Under 2.5 total-goals odds (pairs of "over" then "under" columns),
+    # only used by --source market to pin the scoreline grid's total. These
+    # column names aren't valid Python identifiers, so they're read off the
+    # DataFrame by label rather than via itertuples attributes.
+    ou_cols = [("Avg>2.5", "Avg<2.5"), ("P>2.5", "P<2.5"), ("B365>2.5", "B365<2.5"),
+               ("AvgC>2.5", "AvgC<2.5"), ("PC>2.5", "PC<2.5")]
     resolved_rows = []
     market = {}
+    over_market = {}  # (div, home, away) -> P(over 2.5), devigged
     unresolved = []
-    for row in raw_fixtures.itertuples(index=False):
+    for row in raw_fixtures.itertuples(index=True):
         try:
             home = resolve(row.HomeTeam)
             away = resolve(row.AwayTeam)
@@ -267,6 +443,15 @@ def main(argv=None) -> int:
                     break
                 except (TypeError, ValueError):
                     continue
+        for over_c, under_c in ou_cols:
+            if over_c in raw_fixtures.columns and under_c in raw_fixtures.columns:
+                try:
+                    oo = float(raw_fixtures.at[row.Index, over_c])
+                    ou = float(raw_fixtures.at[row.Index, under_c])
+                    over_market[(row.Div, home, away)] = devig_over_under(oo, ou)
+                    break
+                except (TypeError, ValueError):
+                    continue
 
     if unresolved:
         print(f"\n{len(unresolved)} fixture(s) skipped - unresolved team name "
@@ -278,6 +463,19 @@ def main(argv=None) -> int:
     if fx.empty:
         print("No resolvable fixtures.", file=sys.stderr)
         return 1
+
+    if args.source == "market":
+        n_ou = sum(1 for k in over_market if k in market)
+        model_lookup = _model_lookup(fx, matches, args, today)
+        print(f"\nUpcoming fixtures {today.date()}..{end.date()}  "
+              f"(source=market, rho={args.rho}, delta={args.delta}; "
+              f"{len(market)} priced, {n_ou} with an Over/Under 2.5 line, "
+              f"{len(model_lookup)} with a model comparison)\n")
+        results = _predict_from_market(fx, market, over_market, model_lookup,
+                                       rho=args.rho, delta=args.delta)
+        return _publish(results, args,
+                        trailer="(headline prices are the bookmakers' own devigged odds; "
+                                "model_p_* is our ratings' take, shown for comparison only)")
 
     adjustments_off = not (args.use_referee or args.use_rest or args.use_travel
                           or args.use_squad_value or args.use_injuries)
@@ -454,49 +652,36 @@ def main(argv=None) -> int:
                    **pred}
             if mkt:
                 rec.update({f"market_{k}": v for k, v in mkt.items()})
+                # Full market card alongside the model's: the bookmakers' 1X2
+                # price fitted to a Dixon-Coles grid (+ their Over/Under 2.5
+                # line where the feed carries it) for a market likely score /
+                # over / BTTS. Lets scripts.render_coupon --source market show
+                # the market as the headline with the model as the comparison,
+                # without a second predict_upcoming pass.
+                p_over = over_market.get((div, row.home_team, row.away_team))
+                try:
+                    mgrid = market_prediction(
+                        row.home_team, row.away_team,
+                        mkt["p_home"], mkt["p_draw"], mkt["p_away"], p_over,
+                        rho=args.rho, delta=args.delta)
+                    rec.update({
+                        "market_likely_score": mgrid["likely_score"],
+                        "market_home_pred": mgrid["home_pred"],
+                        "market_away_pred": mgrid["away_pred"],
+                        "market_p_over_2_5": mgrid["p_over_2_5"],
+                        "market_p_btts": mgrid["p_btts"],
+                        "market_fit_residual": mgrid["fit_residual"],
+                    })
+                except (ValueError, RuntimeError):
+                    pass
             results.append(rec)
         print()
 
-    # Sanity gate: never publish or log a physically broken prediction.
-    rated_n = sum(1 for r in results if not r.get("unrated"))
-    msgs, bad_ids = _sanity_check(results)
-    if msgs:
-        print("\nsanity check:", file=sys.stderr)
-        for m in msgs:
-            print(f"  {m}", file=sys.stderr)
-    if bad_ids:
-        limit = max(3, int(0.15 * rated_n))
-        if len(bad_ids) > limit:
-            raise SystemExit(f"sanity check: {len(bad_ids)}/{rated_n} rated fixtures are "
-                             f"physically broken (limit {limit}) - not publishing this card, "
-                             f"something is wrong upstream")
-        results = [r for r in results if r.get("match_id") not in bad_ids]
-        print(f"  -> dropped {len(bad_ids)} broken fixture(s) from the card", file=sys.stderr)
-
-    out = pd.DataFrame(results)
-    out_path = args.out or (config.ARTEFACTS / "upcoming_predictions.csv")
-    out.drop(columns=["adjustments"], errors="ignore").to_csv(out_path, index=False)
-    def _jsonable(rec: dict) -> dict:
-        d = dict(rec)
-        if isinstance(d.get("date"), pd.Timestamp):
-            d["date"] = d["date"].strftime("%Y-%m-%dT%H:%M")
-        return d
-
-    json_path = Path(out_path).with_suffix(".json")
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump([_jsonable(r) for r in results], fh, default=str, indent=2)
-    print(f"-> {out_path}")
-    print(f"-> {json_path}")
-
-    if args.log_predictions:
-        from evaluate import prediction_log
-        n_new = prediction_log.append(results)
-        print(f"-> prediction_log.csv (+{n_new} new fixture(s))")
-
+    trailer = ""
     if adjustments_off:
-        print("(plain model - referee/rest/travel adjustments disabled via --no-*; "
-              "these are ON by default, see README Milestone 4 section)")
-    return 0
+        trailer = ("(plain model - referee/rest/travel adjustments disabled via --no-*; "
+                   "these are ON by default, see README Milestone 4 section)")
+    return _publish(results, args, trailer=trailer)
 
 
 if __name__ == "__main__":
