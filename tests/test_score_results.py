@@ -8,7 +8,7 @@ def test_main_refreshes_then_scores_without_touching_the_log(monkeypatch, tmp_pa
     track_record, but must never write the prediction log."""
     calls = []
 
-    monkeypatch.setattr(sr, "refresh_results", lambda: calls.append("refresh"))
+    monkeypatch.setattr(sr, "refresh_results", lambda: (calls.append("refresh"), True)[1])
     monkeypatch.setattr(sr.track_record, "HTML_OUT", tmp_path / "track-record.html")
 
     def fake_track_record_main(argv):
@@ -41,7 +41,7 @@ def test_timestamp_only_change_is_reverted(monkeypatch, tmp_path):
     html.write_text(_PAGE.format(ts="2026-09-06 21:30", n=54), encoding="utf-8")
     original = html.read_text(encoding="utf-8")
 
-    monkeypatch.setattr(sr, "refresh_results", lambda: None)
+    monkeypatch.setattr(sr, "refresh_results", lambda: True)
     monkeypatch.setattr(sr.track_record, "HTML_OUT", html)
     monkeypatch.setattr(sr.track_record, "main",
                         lambda argv: (html.write_text(_PAGE.format(ts="2026-09-07 08:00", n=54),
@@ -55,7 +55,7 @@ def test_real_change_is_kept(monkeypatch, tmp_path):
     html = tmp_path / "track-record.html"
     html.write_text(_PAGE.format(ts="2026-09-06 21:30", n=54), encoding="utf-8")
 
-    monkeypatch.setattr(sr, "refresh_results", lambda: None)
+    monkeypatch.setattr(sr, "refresh_results", lambda: True)
     monkeypatch.setattr(sr.track_record, "HTML_OUT", html)
     monkeypatch.setattr(sr.track_record, "main",
                         lambda argv: (html.write_text(_PAGE.format(ts="2026-09-07 08:00", n=61),
@@ -63,6 +63,23 @@ def test_real_change_is_kept(monkeypatch, tmp_path):
 
     assert sr.main([]) == 0
     assert '"n_scored":61' in html.read_text(encoding="utf-8")  # new fixtures kept
+
+
+def test_current_season_unavailable_leaves_page_untouched(monkeypatch, tmp_path):
+    html = tmp_path / "track-record.html"
+    html.write_text(_PAGE.format(ts="2026-09-06 21:30", n=54), encoding="utf-8")
+    original = html.read_text(encoding="utf-8")
+
+    monkeypatch.setattr(sr, "refresh_results", lambda: False)  # upstream throttled
+    monkeypatch.setattr(sr.track_record, "HTML_OUT", html)
+
+    def fail(argv):
+        raise AssertionError("track_record must not run when the season is missing")
+
+    monkeypatch.setattr(sr.track_record, "main", fail)
+
+    assert sr.main([]) == 0
+    assert html.read_text(encoding="utf-8") == original
 
 
 def test_refresh_results_rebuilds_matches_parquet(monkeypatch, tmp_path, synthetic_matches):

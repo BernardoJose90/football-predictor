@@ -37,10 +37,17 @@ from scripts import track_record
 _TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?: UTC|Z)?")
 
 
-def refresh_results() -> None:
-    """Re-download every league/season CSV and rebuild data/processed/matches."""
+def refresh_results() -> bool:
+    """Re-download every league/season CSV and rebuild data/processed/matches.
+
+    Returns False when the in-progress season could not be fetched at all (the
+    football-data.co.uk front was throttling every request and nothing was
+    cached) - the caller then leaves the published page untouched rather than
+    republishing it minus the current season's rows.
+    """
     print("Refreshing results from football-data.co.uk...", file=sys.stderr)
-    historical.download_all(force=True, current_only=True)
+    raw = historical.download_all(force=True, current_only=True)
+    have_current = any(p.name.endswith(f"_{config.CURRENT_SEASON}.csv") for p in raw)
 
     # A promoted team's name only enters teams.yaml once its CSV is on disk;
     # re-seed aliases from the fresh files before normalise() (which raises on
@@ -57,6 +64,7 @@ def refresh_results() -> None:
         print(f"note: parquet write skipped ({exc})", file=sys.stderr)
     span = f"{matches['date'].min():%Y-%m-%d} .. {matches['date'].max():%Y-%m-%d}"
     print(f"rebuilt {len(matches)} matches  |  {span}", file=sys.stderr)
+    return have_current
 
 
 def _unchanged_but_for_timestamps(a: str, b: str) -> bool:
@@ -72,7 +80,11 @@ def main(argv=None) -> int:
     html_path = Path(track_record.HTML_OUT)
     before = html_path.read_text(encoding="utf-8") if html_path.exists() else None
 
-    refresh_results()
+    if not refresh_results() and before is not None:
+        print("in-progress season unavailable upstream - leaving the published "
+              "track record as-is until the feed recovers", file=sys.stderr)
+        return 0
+
     rc = track_record.main(["--eval-start", args.eval_start])
 
     # Nothing new resolved since the committed page: put the old file back so
