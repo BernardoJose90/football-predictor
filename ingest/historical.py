@@ -81,9 +81,11 @@ def download_all(*, force: bool = False, current_only: bool = False) -> list[Pat
     * A missing in-progress-season file is skipped with a warning (a league
       that starts later in August genuinely has no file yet).
     * A transient network/5xx failure that survives the retries in ``download``
-      falls back to the cached copy on disk if there is one - a week-old file
-      beats aborting the whole run. Only a first-ever fetch with nothing cached
-      is fatal.
+      is non-fatal: the cached copy on disk is kept if there is one, otherwise
+      that league/season is skipped with a loud warning. The completed-season
+      CSVs are committed to the repo (see .gitignore), so a skip only ever
+      costs the in-progress season's newest rows - never the training history -
+      and load_all() already tolerates a missing file.
     """
     paths = []
     for season in config.SEASONS:
@@ -104,7 +106,8 @@ def download_all(*, force: bool = False, current_only: bool = False) -> list[Pat
                           f"keeping cached copy", file=sys.stderr)
                     paths.append(dest)
                 else:
-                    raise
+                    print(f"  {div} {season}  UNAVAILABLE - {exc.__class__.__name__}, "
+                          f"nothing cached, skipping", file=sys.stderr)
     return paths
 
 

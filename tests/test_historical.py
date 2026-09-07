@@ -100,18 +100,23 @@ def test_download_all_falls_back_to_cache_on_transient_error(tmp_path, monkeypat
     assert cached.read_bytes() == GOOD_CSV
 
 
-def test_download_all_reraises_transient_error_when_nothing_cached(tmp_path, monkeypatch):
+def test_download_all_skips_transient_failure_when_nothing_cached(tmp_path, monkeypatch, capsys):
+    # Completed seasons are committed, so a skip here only loses the in-progress
+    # season's freshest rows - it must not abort the run.
     monkeypatch.setattr(historical.config, "DATA_RAW", tmp_path)
-    monkeypatch.setattr(historical.config, "LEAGUES", {"E0": "Premier League"})
+    monkeypatch.setattr(historical.config, "LEAGUES", {"E0": "Premier League", "E1": "Championship"})
     monkeypatch.setattr(historical.config, "SEASONS", ["2627"])
     monkeypatch.setattr(historical.config, "CURRENT_SEASON", "2627")
 
-    def boom(*a, **k):
-        raise requests.exceptions.ConnectionError("reset by peer")
+    def get(url, *a, **k):
+        if "/E1.csv" in url:
+            raise requests.exceptions.ConnectionError("reset by peer")
+        return _FakeResp(200, "text/csv", GOOD_CSV)
 
-    _patch_get(monkeypatch, boom)
-    with pytest.raises(requests.exceptions.ConnectionError):
-        historical.download_all()
+    _patch_get(monkeypatch, get)
+    paths = historical.download_all()
+    assert [p.name for p in paths] == ["E0_2627.csv"]  # E1 skipped, not fatal
+    assert "UNAVAILABLE" in capsys.readouterr().err
 
 
 def test_current_only_forces_just_the_in_progress_season(tmp_path, monkeypatch):

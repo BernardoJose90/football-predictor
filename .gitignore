@@ -1,5 +1,16 @@
 .env
-data/raw/
+# `data/raw/*` (not a bare directory pattern) so the negations below can
+# un-ignore individual files - git can't un-ignore a file whose parent
+# directory is itself excluded from traversal.
+data/raw/*
+# Completed-season football-data.co.uk CSVs are immutable once the season ends,
+# so they are committed - like understat_xg.csv below - and an unattended CI run
+# never depends on that host being up to fetch them. Only the in-progress
+# season (config.CURRENT_SEASON) is re-pulled each run and left untracked; add
+# the next `!data/raw/*_<season>.csv` line when CURRENT_SEASON rolls over.
+!data/raw/*_2324.csv
+!data/raw/*_2425.csv
+!data/raw/*_2526.csv
 # `data/processed/*` (not a bare directory pattern) so the negation below
 # can actually un-ignore one file inside it - git can't un-ignore a file
 # whose parent directory itself is excluded from traversal.
