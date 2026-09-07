@@ -40,7 +40,7 @@ _TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?: UTC|
 def refresh_results() -> None:
     """Re-download every league/season CSV and rebuild data/processed/matches."""
     print("Refreshing results from football-data.co.uk...", file=sys.stderr)
-    historical.download_all(force=True)
+    historical.download_all(force=True, current_only=True)
 
     # A promoted team's name only enters teams.yaml once its CSV is on disk;
     # re-seed aliases from the fresh files before normalise() (which raises on

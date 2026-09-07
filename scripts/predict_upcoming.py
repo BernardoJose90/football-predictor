@@ -73,7 +73,7 @@ def _rebuild_dataset() -> pd.DataFrame:
     fresh CSVs before normalising, not after.
     """
     print("Refreshing historical data (incl. in-progress season)...", file=sys.stderr)
-    historical.download_all(force=True)
+    historical.download_all(force=True, current_only=True)
 
     from normalise import build_aliases
     from normalise.teams import reload_cache

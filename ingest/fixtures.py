@@ -14,23 +14,48 @@ hours, not a day - it's the closest thing to a live endpoint in this repo.
 from __future__ import annotations
 
 import io
+import sys
 
 import pandas as pd
 import requests
 
 import config
+from ingest._http import SESSION
 
 FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
-_UA = "football-predictor/0.1 (educational; contact via repo)"
+
+# Last good pull, kept so a scheduled run still has a card to work from when the
+# feed is throttling at cron time. The docstring already treats this feed as
+# valid for a few hours, so a slightly stale fixture list is an acceptable
+# fallback - fixtures rarely move inside that window.
+_CACHE = config.DATA_RAW / "fixtures.csv"
 
 
 def download_fixtures(timeout: int = 30) -> pd.DataFrame:
-    resp = requests.get(FIXTURES_URL, headers={"User-Agent": _UA}, timeout=timeout)
-    resp.raise_for_status()
-    text = resp.content.decode("utf-8-sig")
-    df = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=True)
-    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
-    return df
+    reason = None
+    try:
+        resp = SESSION.get(FIXTURES_URL, timeout=timeout)
+        resp.raise_for_status()
+        body = resp.content
+        if not body[:200].lstrip(b"\xef\xbb\xbf").startswith((b"Div,", b'"Div",')):
+            reason = "response is not the fixtures CSV"  # a throttle HTML page, etc.
+    except requests.exceptions.RequestException as exc:
+        reason = exc.__class__.__name__
+
+    if reason is not None:
+        if _CACHE.exists():
+            print(f"fixtures.csv fetch failed ({reason}) - using cached copy from {_CACHE}",
+                  file=sys.stderr)
+            return _read_fixtures(_CACHE.read_bytes())
+        raise RuntimeError(f"fixtures.csv unavailable ({reason}) and no cached copy on disk")
+
+    _CACHE.write_bytes(body)
+    return _read_fixtures(body)
+
+
+def _read_fixtures(body: bytes) -> pd.DataFrame:
+    df = pd.read_csv(io.StringIO(body.decode("utf-8-sig")), dtype=str, keep_default_na=True)
+    return df.loc[:, ~df.columns.str.startswith("Unnamed")]
 
 
 def upcoming(leagues=None, start=None, end=None) -> pd.DataFrame:

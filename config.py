@@ -34,6 +34,12 @@ LEAGUES: dict[str, str] = {
 # (only played rounds so far) all season; that's expected, not a bug.
 SEASONS: list[str] = ["2324", "2425", "2526", "2627"]
 
+# The one season whose CSV still gains rows week to week. Completed seasons are
+# immutable once their file is on disk, so ingest.historical never re-fetches
+# them even under force - only this one is worth the network round-trip and the
+# exposure to an upstream 5xx (see ingest/historical.py download_all).
+CURRENT_SEASON: str = SEASONS[-1]
+
 FOOTBALL_DATA_BASE = "https://www.football-data.co.uk/mmz4281"
 
 # ---- model defaults -------------------------------------------------------

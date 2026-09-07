@@ -25,6 +25,22 @@ jobs:
         with:
           python-version: "3.13"
 
+      # data/raw/ is gitignored, so without this every run re-pulls ~30 CSVs
+      # from football-data.co.uk and rides on that host being up at cron time.
+      # Keyed by ISO week: a same-week rerun (e.g. after a transient 503)
+      # restores the lot and ingest.historical only re-fetches the in-progress
+      # season; a new week misses, falls back to last week's via restore-keys,
+      # and again only the current season is re-downloaded.
+      - id: weekkey
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache football-data.co.uk CSVs
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: raw-csv-${{ steps.weekkey.outputs.week }}
+          restore-keys: raw-csv-
+
       - name: Install dependencies
         run: pip install -r requirements.txt -r api/requirements.txt
 

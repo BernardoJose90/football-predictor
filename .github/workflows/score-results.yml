@@ -32,6 +32,18 @@ jobs:
         with:
           python-version: "3.13"
 
+      # See weekly-predictions.yml for the rationale. Shared key, so whichever
+      # workflow runs first in an ISO week warms the cache for the other.
+      - id: weekkey
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache football-data.co.uk CSVs
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: raw-csv-${{ steps.weekkey.outputs.week }}
+          restore-keys: raw-csv-
+
       - name: Install dependencies
         run: pip install -r requirements.txt -r api/requirements.txt
 

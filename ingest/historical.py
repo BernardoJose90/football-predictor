@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import io
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
 import requests
 
 import config
-
-_UA = "football-predictor/0.1 (educational; contact via repo)"
+from ingest._http import INTER_REQUEST_PAUSE, SESSION
 
 
 def _raw_path(div: str, season: str) -> Path:
@@ -46,7 +46,7 @@ def download(div: str, season: str, *, force: bool = False, timeout: int = 30) -
         return dest
 
     url = f"{config.FOOTBALL_DATA_BASE}/{season}/{div}.csv"
-    resp = requests.get(url, headers={"User-Agent": _UA}, timeout=timeout)
+    resp = SESSION.get(url, timeout=timeout)
     resp.raise_for_status()
 
     content_type = resp.headers.get("content-type", "")
@@ -66,17 +66,45 @@ def download(div: str, season: str, *, force: bool = False, timeout: int = 30) -
     return dest
 
 
-def download_all(*, force: bool = False) -> list[Path]:
-    """Download every configured league/season. Missing in-progress-season
-    files are skipped with a warning rather than aborting the whole run."""
+def download_all(*, force: bool = False, current_only: bool = False) -> list[Path]:
+    """Download every configured league/season.
+
+    ``force`` re-downloads files that are already on disk. ``current_only``
+    narrows that to ``config.CURRENT_SEASON`` - the scheduled, unattended runs
+    pass it because completed seasons never change once their file exists, so
+    re-fetching them is pure load and pure extra surface for a transient
+    upstream failure. The manual entry points leave it off so ``--force`` still
+    means "re-fetch the lot" (corruption recovery).
+
+    Two more resilience behaviours for the operator-less runs:
+
+    * A missing in-progress-season file is skipped with a warning (a league
+      that starts later in August genuinely has no file yet).
+    * A transient network/5xx failure that survives the retries in ``download``
+      falls back to the cached copy on disk if there is one - a week-old file
+      beats aborting the whole run. Only a first-ever fetch with nothing cached
+      is fatal.
+    """
     paths = []
     for season in config.SEASONS:
+        season_force = force and (not current_only or season == config.CURRENT_SEASON)
         for div in config.LEAGUES:
+            dest = _raw_path(div, season)
+            hits_network = season_force or not dest.exists()
+            if hits_network and paths:
+                time.sleep(INTER_REQUEST_PAUSE)
             try:
-                paths.append(download(div, season, force=force))
+                paths.append(download(div, season, force=season_force))
                 print(f"  {div} {season}  ok", file=sys.stderr)
             except FileUnavailable as exc:
                 print(f"  {div} {season}  SKIPPED - {exc}", file=sys.stderr)
+            except requests.exceptions.RequestException as exc:
+                if dest.exists():
+                    print(f"  {div} {season}  STALE - {exc.__class__.__name__}, "
+                          f"keeping cached copy", file=sys.stderr)
+                    paths.append(dest)
+                else:
+                    raise
     return paths
 
 

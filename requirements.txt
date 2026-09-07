@@ -6,6 +6,9 @@ numpy==2.5.2
 scipy==1.18.1
 matplotlib==3.11.1
 requests==2.34.2
+# requests' HTTP layer - pinned directly because ingest/historical.py drives it
+# (retry/backoff config); the Retry(backoff_max=...) kwarg needs urllib3 >= 2.
+urllib3==2.7.0
 python-dotenv==1.2.3
 PyYAML==6.0.3
 pyarrow==25.0.1
