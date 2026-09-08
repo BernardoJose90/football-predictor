@@ -20,6 +20,13 @@ data/processed/*
 # per the project's own "cache Understat aggressively" rule. Refresh
 # manually with `python -m ingest.understat` every so often, not on schedule.
 !data/processed/understat_xg.csv
+# Champions League fixtures/results mirror (football-data.org) and Club Elo
+# snapshots (clubelo.com) - committed for the same reason: a scheduled run
+# should not depend on either host being up, and completed CL matches are
+# immutable. The weekly workflow refreshes and re-commits these.
+!data/processed/ucl_matches.csv
+!data/processed/club_elo/
+!data/processed/club_elo/*.csv
 .venv/
 __pycache__/
 *.pyc

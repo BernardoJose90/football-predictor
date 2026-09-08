@@ -21,6 +21,8 @@ import pandas as pd
 
 import config
 from model import predict as predict_mod
+from model.club_elo_implied import implied_1x2
+from model.league_bridge import cl_goal_baselines, elo_bridge
 from model.ratings import build_ratings
 from model.referee import build_referee_factors
 from model.rest import add_rest_days, rest_factor
@@ -37,6 +39,9 @@ class BacktestConfig:
     min_matches: int = config.DEFAULT_MIN_MATCHES
     max_goals: int = config.MAX_GOALS
     rebuild_every_days: int = 7          # reuse ratings within this many days
+    # Champions League cross-league bridge exponent (model/league_bridge.py).
+    # Only backtest_uefa reads it; 0.0 = domestic form only, no Elo bridge.
+    cl_gamma: float = config.DEFAULT_CL_GAMMA
     # Section 10.1 feature candidates - referee and rest default ON per an
     # explicit product decision (see config.py); they raised RPS in this
     # repo's own walk-forward test, kept anyway for the real-world signal.
@@ -63,6 +68,23 @@ def _iter_matchdays(league_df: pd.DataFrame):
         yield day, chunk
 
 
+def build_snapshot(league_df, as_of, cfg: BacktestConfig, *, squad_values=None):
+    """Walk cfg's stat chain (xg -> sot -> goals for "auto") and return the
+    first RatingSnapshot that has enough history, or None. Shared by the
+    domestic and the Champions League walk-forwards."""
+    stats_to_try = config.AUTO_STAT_CHAIN if cfg.stat == "auto" else (cfg.stat,)
+    for candidate_stat in stats_to_try:
+        try:
+            return build_ratings(
+                league_df, as_of=as_of, stat=candidate_stat, xi=cfg.xi,
+                min_matches=cfg.min_matches, squad_values=squad_values,
+                value_prior_min_points=cfg.value_prior_min_points,
+            )
+        except ValueError:
+            continue
+    return None
+
+
 def backtest_league(
     league_df: pd.DataFrame,
     start: pd.Timestamp,
@@ -87,26 +109,13 @@ def backtest_league(
             or (day - snap_day).days >= cfg.rebuild_every_days
         )
         if need_rebuild:
-            # stat="auto" tries the primary stat (xg) first, falling back to
-            # sot for a division that doesn't have it (e.g. E1/SC0/P1) -
-            # resolved here, per division, never passed into build_ratings
-            # directly. A concrete stat is tried once, same as before.
-            stats_to_try = (
-                (config.AUTO_STAT_PRIMARY, config.AUTO_STAT_FALLBACK)
-                if cfg.stat == "auto" else (cfg.stat,)
+            # stat="auto" walks xg -> sot -> goals, per division, using the
+            # first the division has usable data for - resolved here, never
+            # passed into build_ratings directly.
+            snap = build_snapshot(
+                league_df, day, cfg,
+                squad_values=cfg.squad_values if cfg.use_squad_value else None,
             )
-            snap = None
-            for candidate_stat in stats_to_try:
-                try:
-                    snap = build_ratings(
-                        league_df, as_of=day, stat=candidate_stat, xi=cfg.xi,
-                        min_matches=cfg.min_matches,
-                        squad_values=cfg.squad_values if cfg.use_squad_value else None,
-                        value_prior_min_points=cfg.value_prior_min_points,
-                    )
-                    break
-                except ValueError:
-                    continue
             if snap is None:
                 continue  # not enough history yet, in any candidate stat
             snap_day = day
@@ -195,6 +204,139 @@ def backtest(
     if not frames:
         return pd.DataFrame(columns=_RESULT_COLUMNS)
     return pd.concat(frames, ignore_index=True).sort_values("date").reset_index(drop=True)
+
+
+_UEFA_RESULT_COLUMNS = [
+    "match_id", "date", "competition", "season", "matchday", "stage",
+    "home_team", "away_team", "home_div", "away_div", "result",
+    "home_goals", "away_goals", "home_elo", "away_elo", "bridge",
+    "ratings_as_of", "unrated",
+    "home_pred", "away_pred", "likely_score",
+    "p_home", "p_draw", "p_away", "p_over_2_5", "p_btts",
+    "elo_p_home", "elo_p_draw", "elo_p_away",
+]
+
+
+def _division_as_of(appearances: dict[str, list[tuple]], team: str, as_of) -> str | None:
+    """The division of ``team``'s most recent domestic match before ``as_of``.
+
+    ``appearances[team]`` is a date-sorted list of ``(date, div)`` tuples built
+    once by the caller.
+    """
+    hist = appearances.get(team)
+    if not hist:
+        return None
+    as_of = pd.Timestamp(as_of)
+    prev = [div for d, div in hist if d < as_of]
+    return prev[-1] if prev else None
+
+
+def backtest_uefa(
+    cl_results: pd.DataFrame,
+    domestic_matches: pd.DataFrame,
+    start,
+    end=None,
+    cfg: BacktestConfig | None = None,
+    *,
+    elo_lookup: dict | None = None,
+) -> pd.DataFrame:
+    """Walk-forward over Champions League matchdays.
+
+    For each tie: find each club's current domestic division, build that
+    league's ratings as of the matchday, bridge the two scales with Club Elo
+    (model/league_bridge.py), and score the cross-league prediction against the
+    actual result. Also records the Club-Elo-implied 1X2 as the baseline the
+    model is measured against (no free CL closing line exists).
+
+    ``cl_results`` needs: match_id, date, season, home_team, away_team, result,
+    home_goals, away_goals (matchday / stage optional). ``domestic_matches`` is
+    the full multi-division match table. ``elo_lookup`` (``{matchday ->
+    {team -> elo}}``) is pulled from ingest.club_elo when not supplied - tests
+    pass a synthetic one.
+    """
+    cfg = cfg or BacktestConfig()
+    start = pd.Timestamp(start)
+    end = pd.Timestamp(end) if end is not None else None
+
+    dm = domestic_matches.sort_values("date")
+    appearances: dict[str, list[tuple]] = {}
+    for r in dm.itertuples(index=False):
+        appearances.setdefault(r.home_team, []).append((r.date, r.div))
+        appearances.setdefault(r.away_team, []).append((r.date, r.div))
+
+    cl = cl_results.sort_values("date").reset_index(drop=True)
+    cl = cl[cl["date"] >= start]
+    if end is not None:
+        cl = cl[cl["date"] < end]
+    if cl.empty:
+        return pd.DataFrame(columns=_UEFA_RESULT_COLUMNS)
+
+    if elo_lookup is None:
+        from ingest import club_elo
+        elo_lookup = club_elo.elo_by_date(cl["date"].dt.normalize().unique())
+
+    snap_cache: dict[tuple, object] = {}
+
+    def _snap(div, day):
+        if div is None:
+            return None
+        key = (div, pd.Timestamp(day).normalize())
+        if key not in snap_cache:
+            league_df = domestic_matches[domestic_matches["div"] == div]
+            snap_cache[key] = build_snapshot(league_df, day, cfg)
+        return snap_cache[key]
+
+    rows: list[dict] = []
+    for day, chunk in _iter_matchdays(cl):
+        emap = elo_lookup.get(pd.Timestamp(day).normalize(), {}) or {}
+        g_home, g_away = cl_goal_baselines(cl_results, day, xi=cfg.xi)
+        for row in chunk.itertuples(index=False):
+            hdiv = _division_as_of(appearances, row.home_team, day)
+            adiv = _division_as_of(appearances, row.away_team, day)
+            snap_h, snap_a = _snap(hdiv, day), _snap(adiv, day)
+            elo_h, elo_a = emap.get(row.home_team), emap.get(row.away_team)
+            bridge = elo_bridge(elo_h, elo_a, cfg.cl_gamma)
+
+            pred = None
+            if snap_h is not None and snap_a is not None:
+                pred = predict_mod.predict_cross_league(
+                    snap_h, snap_a, row.home_team, row.away_team,
+                    bridge=bridge, g_home=g_home, g_away=g_away,
+                    rho=cfg.rho, delta=cfg.delta, max_goals=cfg.max_goals,
+                )
+
+            rec = {
+                "match_id": getattr(row, "match_id", None),
+                "date": row.date,
+                "competition": "CL",
+                "season": getattr(row, "season", None),
+                "matchday": getattr(row, "matchday", None),
+                "stage": getattr(row, "stage", None),
+                "home_team": row.home_team,
+                "away_team": row.away_team,
+                "home_div": hdiv,
+                "away_div": adiv,
+                "result": row.result,
+                "home_goals": row.home_goals,
+                "away_goals": row.away_goals,
+                "home_elo": elo_h,
+                "away_elo": elo_a,
+                "bridge": round(float(bridge), 4),
+                "ratings_as_of": pd.Timestamp(day).normalize(),
+                "unrated": pred is None,
+            }
+            if pred is not None:
+                for k in ("home_pred", "away_pred", "likely_score",
+                          "p_home", "p_draw", "p_away", "p_over_2_5", "p_btts"):
+                    rec[k] = pred[k]
+            if elo_h is not None and elo_a is not None:
+                imp = implied_1x2(elo_h, elo_a)
+                rec["elo_p_home"] = round(imp["p_home"], 4)
+                rec["elo_p_draw"] = round(imp["p_draw"], 4)
+                rec["elo_p_away"] = round(imp["p_away"], 4)
+            rows.append(rec)
+
+    return pd.DataFrame(rows, columns=_UEFA_RESULT_COLUMNS)
 
 
 def report(preds: pd.DataFrame) -> dict:

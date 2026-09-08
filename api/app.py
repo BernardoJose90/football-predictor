@@ -198,8 +198,12 @@ def health() -> dict[str, Any]:
 
 @app.get("/v1/leagues", response_model=list[League], tags=["reference"])
 def leagues():
-    """The eight leagues covered, with their football-data.co.uk division codes."""
-    return [League(code=c, name=n) for c, n in config.LEAGUES.items()]
+    """The eight couponed leagues, with their football-data.co.uk division codes,
+    plus the Champions League. (N1/B1/G1/T1 are ingested to rate CL participants
+    but are not couponed, so they are not listed here.)"""
+    out = [League(code=c, name=n) for c, n in config.COUPON_LEAGUES.items()]
+    out += [League(code=c, name=n) for c, n in config.UEFA_COMPS.items()]
+    return out
 
 
 @app.get("/v1/predictions", response_model=list[Fixture], tags=["predictions"])

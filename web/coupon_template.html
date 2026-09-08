@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="This weekend's football predictions from a walk-forward Poisson model, next to the bookmakers' own prices — 8 leagues, updated twice a week.">
+<meta name="description" content="This week's football predictions from a walk-forward Poisson model, next to the bookmakers' own prices — 8 leagues plus the Champions League, updated through the week.">
 <title>Weekend Coupon</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -259,10 +259,13 @@
         continue;
       }
 
+      // Champions League rows carry their own comparison label ("Club Elo") -
+      // there is no bookmaker line for that competition.
+      const compareLabel = m.compareLabel || COMPARE_LABEL;
       let gapBadge = '';
       if (m.mHome !== undefined) {
         const d = Math.max(Math.abs(m.pHome - m.mHome), Math.abs(m.pDraw - m.mDraw), Math.abs(m.pAway - m.mAway));
-        const vs = SOURCE === 'market' ? 'vs our model' : 'vs market';
+        const vs = m.compareLabel ? ('vs ' + m.compareLabel) : (SOURCE === 'market' ? 'vs our model' : 'vs market');
         if (d >= 12) gapBadge = `<span class="gap-badge">±${Math.round(d)}pt ${vs}</span>`;
       }
 
@@ -282,7 +285,7 @@
         </div>
         ${m.mHome !== undefined ? `
         <div class="prob-row">
-          <span class="prob-label">${COMPARE_LABEL}</span>
+          <span class="prob-label">${compareLabel}</span>
           ${probBar(m.mHome, m.mDraw, m.mAway, true)}
         </div>` : ''}
         <div class="legend-inline">

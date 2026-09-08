@@ -17,16 +17,17 @@ Writes artefacts/calibration.png.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 import config
 from evaluate import baselines, metrics
-from evaluate.backtest import BacktestConfig, backtest, report
+from evaluate.backtest import BacktestConfig, backtest, backtest_uefa, report
 
 
-def _load_matches() -> pd.DataFrame:
+def _load_matches(coupon_only: bool = True) -> pd.DataFrame:
     pq = config.DATA_PROCESSED / "matches.parquet"
     csv = config.DATA_PROCESSED / "matches.csv"
     if pq.exists():
@@ -36,6 +37,11 @@ def _load_matches() -> pd.DataFrame:
     else:
         raise SystemExit("no dataset - run `python -m scripts.build_dataset --download` first")
     df["date"] = pd.to_datetime(df["date"])
+    # The domestic evaluation stays on the 8 couponed leagues so its numbers
+    # remain comparable across the project's history; N1/B1/G1/T1 were only
+    # added to rate CL participants. The CL backtest needs all divisions.
+    if coupon_only:
+        df = df[~df["div"].isin(config.RATING_ONLY_LEAGUES)].reset_index(drop=True)
     return df
 
 
@@ -61,6 +67,75 @@ def _plot_calibration(preds: pd.DataFrame, out: Path) -> None:
     plt.close(fig)
 
 
+def _run_cl(args) -> int:
+    """Walk-forward evaluation of the Champions League cross-league model,
+    scored against the Club-Elo-implied 1X2 (there is no free CL closing line)."""
+    from ingest import champions_league
+
+    domestic = _load_matches(coupon_only=False)
+    try:
+        cl_results = champions_league.results()
+    except Exception as exc:  # noqa: BLE001 - missing token / no mirror
+        print(f"no CL results available ({exc}) - run "
+              f"`python -m ingest.champions_league --refresh` with FOOTBALL_DATA_ORG_TOKEN set",
+              file=sys.stderr)
+        return 1
+    if cl_results.empty:
+        print("CL mirror has no played matches yet - run "
+              "`python -m ingest.champions_league --refresh`", file=sys.stderr)
+        return 1
+
+    start = pd.Timestamp(args.eval_start)
+    end = pd.Timestamp(args.eval_end) if args.eval_end else None
+    cfg = BacktestConfig(stat=args.stat, xi=args.xi, rho=args.rho, delta=args.delta,
+                         cl_gamma=args.cl_gamma)
+    preds = backtest_uefa(cl_results, domestic, start, end, cfg)
+    if preds.empty:
+        print(f"no CL matches in the window {start.date()}..", file=sys.stderr)
+        return 1
+    rep = report(preds)
+    rated = preds[~preds["unrated"] & preds["p_home"].notna()]
+
+    ecols = {"elo_p_home": "p_home", "elo_p_draw": "p_draw", "elo_p_away": "p_away"}
+    elo_all = metrics.summary(
+        preds.dropna(subset=list(ecols))[list(ecols) + ["result"]].rename(columns=ecols))
+    elo_common = metrics.summary(
+        rated.dropna(subset=list(ecols))[list(ecols) + ["result"]].rename(columns=ecols))
+
+    print("\n===============  CHAMPIONS LEAGUE  ===============")
+    print(f"window            : {start.date()} .. "
+          f"{(end.date() if end is not None else preds['date'].max().date())}")
+    print(f"stat / xi / gamma : {args.stat} / {args.xi} / {args.cl_gamma}")
+    print(f"model coverage    : {rep['rated']}/{rep['matches']}  ({rep['coverage']:.1%})  "
+          f"(rest: a club with no domestic rating either side)")
+    print("-------------------------------------------------")
+    print(f"{'':22s}{'RPS':>9s}{'log loss':>11s}{'n':>8s}")
+    print(f"{'Club Elo implied':22s}{elo_common['rps']:>9.4f}{elo_common['log_loss']:>11.4f}{elo_common['n']:>8d}")
+    print(f"{'this model':22s}{rep['rps']:>9.4f}{rep['log_loss']:>11.4f}{rep['rated']:>8d}")
+    print("-------------------------------------------------")
+    print(f"full-sample Club Elo RPS : {elo_all['rps']:.4f}  (n={elo_all['n']})")
+    beats = rep["rps"] < elo_common["rps"]
+    print(f"beats Club Elo on same fixtures : {'YES' if beats else 'no'}  "
+          f"(gap {rep['rps'] - elo_common['rps']:+.4f})")
+    if len(rated) >= 2:
+        elo_frame = rated[["match_id", *ecols]].rename(columns=ecols)
+        m_rps, o_rps = _aligned_rps(rated, elo_frame)
+        if m_rps is not None:
+            cmp = metrics.forecast_comparison(m_rps, o_rps)
+            verdict = ("model better" if cmp["mean_diff"] < 0 else "model worse") \
+                if cmp["p_value"] < 0.05 else "no significant difference"
+            print(f"vs Club Elo : ΔRPS {cmp['mean_diff']:+.4f} "
+                  f"[{cmp['ci_low']:+.4f}, {cmp['ci_high']:+.4f}]  p={cmp['p_value']:.4f}  -> {verdict}")
+    if "season" in rated.columns and rated["season"].notna().any():
+        by_season = (rated.assign(_rps=metrics.rps_series(rated))
+                     .groupby("season")["_rps"].agg(["mean", "size"]))
+        print("per-season model RPS:")
+        for season, r in by_season.iterrows():
+            print(f"  {season}: {r['mean']:.4f}  (n={int(r['size'])})")
+    print("=================================================\n")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--eval-start", default="2025-08-01", help="first date in the report window")
@@ -70,7 +145,14 @@ def main(argv=None) -> int:
     ap.add_argument("--rho", type=float, default=config.DEFAULT_RHO)
     ap.add_argument("--delta", type=float, default=config.DEFAULT_DELTA,
                     help="diagonal-inflation strength on the Dixon-Coles grid (0 = off)")
+    ap.add_argument("--competition", choices=("domestic", "cl"), default="domestic",
+                    help="'cl' runs the Champions League cross-league backtest instead")
+    ap.add_argument("--cl-gamma", type=float, default=config.DEFAULT_CL_GAMMA,
+                    help="Club Elo bridge exponent for --competition cl (0 = domestic form only)")
     args = ap.parse_args(argv)
+
+    if args.competition == "cl":
+        return _run_cl(args)
 
     matches = _load_matches()
     start = pd.Timestamp(args.eval_start)

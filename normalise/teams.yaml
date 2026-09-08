@@ -8,29 +8,52 @@ Almeria: []
 Alverca: []
 Angers: []
 Arouca: []
-Arsenal: []
-Aston Villa: []
-Atalanta: []
+Arsenal:
+- Arsenal FC
+Aston Villa:
+- Aston Villa FC
+Atalanta:
+- Atalanta BC
+- Atalanta Bergamo
 Ath Bilbao:
+- Athletic Bilbao
 - Athletic Club
+- Atletico Bilbao
 Ath Madrid:
+- Atletico
 - Atletico Madrid
+- Atlético Madrid
+- Atlético de Madrid
+- Club Atlético de Madrid
 Augsburg: []
 Auxerre: []
-Barcelona: []
-Bayern Munich: []
-Benfica: []
+Barcelona:
+- FC Barcelona
+Bayern Munich:
+- Bayern
+- Bayern Munchen
+- Bayern München
+- FC Bayern Munich
+- FC Bayern München
+Benfica:
+- Benfica Lisbon
+- SL Benfica
+- Sport Lisboa e Benfica
 Betis:
 - Real Betis
 Birmingham: []
 Blackburn: []
 Boavista: []
 Bochum: []
-Bologna: []
+Bologna:
+- Bologna FC
+- Bologna FC 1909
 Bolton: []
 Bournemouth: []
 Brentford: []
-Brest: []
+Brest:
+- Stade Brestois
+- Stade Brestois 29
 Brighton: []
 Bristol City: []
 Burnley: []
@@ -40,10 +63,12 @@ Cardiff: []
 Casa Pia: []
 Celta:
 - Celta Vigo
-Celtic: []
+Celtic:
+- Celtic FC
 Charlton: []
 Chaves: []
-Chelsea: []
+Chelsea:
+- Chelsea FC
 Clermont:
 - Clermont Foot
 Como: []
@@ -53,6 +78,7 @@ Crystal Palace: []
 Darmstadt: []
 Derby: []
 Dortmund:
+- BVB
 - Borussia Dortmund
 Dundee: []
 Dundee United: []
@@ -91,9 +117,15 @@ Hoffenheim: []
 Holstein Kiel: []
 Huddersfield: []
 Hull: []
-Inter: []
+Inter:
+- FC Internazionale Milano
+- Inter Milan
+- Inter Milano
+- Internazionale
 Ipswich: []
-Juventus: []
+Juventus:
+- Juventus FC
+- Juventus Turin
 Kilmarnock: []
 La Coruna: []
 Las Palmas: []
@@ -107,10 +139,14 @@ Leicester: []
 Lens: []
 Levante: []
 Leverkusen:
+- Bayer 04 Leverkusen
 - Bayer Leverkusen
-Lille: []
+Lille:
+- LOSC Lille
+- Lille OSC
 Lincoln: []
-Liverpool: []
+Liverpool:
+- Liverpool FC
 Livingston: []
 Lorient: []
 Luton: []
@@ -123,25 +159,37 @@ Malaga: []
 Mallorca: []
 Man City:
 - Manchester City
+- Manchester City FC
 Man United:
 - Manchester United
+- Manchester United FC
 Maritimo: []
-Marseille: []
+Marseille:
+- Olympique Marseillais
+- Olympique Marseille
+- Olympique de Marseille
 Metz: []
 Middlesbrough: []
 Milan:
 - AC Milan
+- Associazione Calcio Milan
 Millwall: []
-Monaco: []
+Monaco:
+- AS Monaco
+- AS Monaco FC
+- Monaco FC
 Montpellier: []
 Monza: []
 Moreirense: []
 Motherwell: []
 Nacional: []
 Nantes: []
-Napoli: []
+Napoli:
+- SSC Napoli
 Newcastle:
 - Newcastle United
+- Newcastle United FC
+- Newcastle Utd
 Nice: []
 Norwich: []
 Nott'm Forest:
@@ -153,20 +201,29 @@ Oxford: []
 Paderborn: []
 Paris FC: []
 Paris SG:
+- PSG
+- Paris
+- Paris S-G
 - Paris Saint Germain
+- Paris Saint-Germain
+- Paris Saint-Germain FC
 Parma:
 - Parma Calcio 1913
 Pisa: []
 Plymouth: []
 Portimonense: []
-Porto: []
+Porto:
+- FC Porto
 Portsmouth: []
 Preston: []
 QPR: []
 RB Leipzig:
+- Leipzig
 - RasenBallsport Leipzig
-Rangers: []
-Real Madrid: []
+Rangers:
+- Rangers FC
+Real Madrid:
+- Real Madrid CF
 Reims: []
 Rennes: []
 Rio Ave: []
@@ -178,14 +235,23 @@ Santa Clara: []
 Santander: []
 Sassuolo: []
 Schalke 04: []
-Sevilla: []
+Sevilla:
+- Sevilla FC
 Sheffield United: []
 Sheffield Weds: []
 Sociedad:
 - Real Sociedad
 Southampton: []
-Sp Braga: []
-Sp Lisbon: []
+Sp Braga:
+- Braga
+- SC Braga
+- Sporting Braga
+Sp Lisbon:
+- Sporting
+- Sporting CP
+- Sporting Clube de Portugal
+- Sporting Lisbon
+- Sporting Lissabon
 St Etienne:
 - Saint-Etienne
 St Johnstone: []
@@ -200,7 +266,10 @@ Sunderland: []
 Swansea: []
 Tondela: []
 Torino: []
-Tottenham: []
+Tottenham:
+- Spurs
+- Tottenham Hotspur
+- Tottenham Hotspur FC
 Toulouse: []
 Troyes: []
 Udinese: []
@@ -212,7 +281,8 @@ Vallecano:
 - Rayo Vallecano
 Venezia: []
 Verona: []
-Villarreal: []
+Villarreal:
+- Villarreal CF
 Vizela: []
 Watford: []
 Werder Bremen: []

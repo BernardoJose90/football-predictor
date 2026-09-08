@@ -66,17 +66,72 @@ it, so switch back to `python3` once your system Python is fixed.
 
 ## What's covered by data
 
-8 leagues x seasons 2023/24-2025/26 (the most recent 3 complete seasons as of
-Aug 2026), pulled from football-data.co.uk: Premier League (E0), Championship
-(E1), Scottish Premiership (SC0), La Liga (SP1), Bundesliga (D1), Serie A (I1),
-Ligue 1 (F1), Primeira Liga (P1). 8,514 played matches, 100% with closing odds,
-99.99% with shots-on-target.
+**8 couponed leagues** x seasons 2023/24-2025/26 (the most recent 3 complete
+seasons as of Aug 2026), pulled from football-data.co.uk: Premier League (E0),
+Championship (E1), Scottish Premiership (SC0), La Liga (SP1), Bundesliga (D1),
+Serie A (I1), Ligue 1 (F1), Primeira Liga (P1). 8,514 played matches, 100% with
+closing odds, 99.99% with shots-on-target. These are what the weekend page and
+the public track record cover.
+
+**4 rating-only leagues** - Eredivisie (N1), Belgian Pro League (B1), Greek
+Super League (G1), Turkish Super Lig (T1) - are ingested and rated but kept
+*off* the weekend coupon (`config.COUPON_LEAGUES` vs `config.LEAGUES`). They
+exist only so their clubs have an attack/defence rating when they turn up in
+the Champions League (see the Champions League section below). Where a league's
+CSVs carry no shot-on-target column, `stat="auto"` now falls through to plain
+goals (`xg -> sot -> goals`) rather than leaving the division unrated.
 
 Expected goals is now populated: `python -m ingest.understat` (via `soccerdata`)
 pulls real Understat xG for the 5 leagues it covers (E0, SP1, D1, I1, F1 - not
 E1/SC0/P1), 5,240 matches joined. Default `--stat` is still `sot` (shots on
 target) for the live pipeline, since it's the one with full 8-league coverage -
 see Milestone 4 below for why `xg` isn't the default despite scoring better.
+
+## Champions League
+
+The CL is predicted too, but it needs machinery the domestic leagues don't,
+because this model rates every team **relative to its own league**: Real
+Madrid's `attack = 1.2` means "20% above the La Liga average" and Man City's
+`1.2` means "20% above the Premier League average" - not the same scale. A
+cross-league tie needs a bridge between the two.
+
+**The bridge is Club Elo.** clubelo.com (free, keyless, via `soccerdata`) rates
+every European club on one scale. For a tie:
+
+    bridge = 10 ** (gamma * (elo_home - elo_away) / 400)
+    lam (home xG) = attack_home * defence_away * G_home_cl * bridge
+    mu  (away xG) = attack_away * defence_home * G_away_cl / bridge
+
+`attack_*`/`defence_*` are the usual league-relative form; `G_*_cl` are the CL's
+own (smaller) home/away goal averages; `bridge` is the Elo strength ratio.
+`gamma` is swept walk-forward against the actual CL results
+(`python -m scripts.run_tune --competition cl`), `gamma = 0` meaning "domestic
+form only". Set `config.DEFAULT_CL_GAMMA` from that sweep once it beats the
+Club Elo baseline; it ships at `0.0` until the sweep has run on real data.
+
+**Data sources.** Fixtures and results: football-data.org's free tier
+(`ingest/champions_league.py`) - register a key at
+<https://www.football-data.org/client/register> and put it in `.env` as
+`FOOTBALL_DATA_ORG_TOKEN`. That tier has **no odds**, so the comparison price on
+the CL section of the coupon and the CL backtest baseline is Club Elo's implied
+1X2 (`model/club_elo_implied.py`), not a bookmaker line. Both sources degrade to
+an on-disk mirror when unavailable, so a missing key just skips the CL block.
+
+**Coverage is partial.** A CL club from outside the 12 ingested leagues
+(Austria, Czechia, Serbia, Ukraine, Switzerland, ...) has no domestic rating, so
+that tie shows as `UNRATED` rather than guessed - roughly 50-65% of a league-phase
+matchday is fully rated, more in the knockouts. Two-legged ties are predicted a
+leg at a time; extra time and penalties are not modelled.
+
+**Honesty note.** This is a small-sample addition (~600 historical CL matches).
+Treat the CL numbers the way the Milestone 4 section treats referee/rest/travel:
+shown, tested, and only trusted as far as the walk-forward evidence goes.
+
+    python -m ingest.champions_league --refresh      # pull fixtures + results
+    python -m ingest.club_elo                        # cache today's Elo snapshot
+    python -m scripts.run_tune --competition cl      # sweep gamma
+    python -m scripts.run_backtest --competition cl  # score vs Club Elo
+    python -m scripts.predict_upcoming --days 7      # CL block prints with the domestic card
 
 ## Milestone 4: tuning and feature tests
 
@@ -417,8 +472,10 @@ Matches `football-predictor/` in the design doc section 7, minus `infra/`
 ```
 config.py            league codes, seasons, model defaults incl. section 10.1 feature flags
 ingest/
-  historical.py       football-data.co.uk CSV download + load
+  historical.py       football-data.co.uk CSV download + load (12 leagues)
   fixtures.py          upcoming fixtures, football-data.co.uk's free fixtures.csv
+  champions_league.py   CL fixtures + results, football-data.org free tier (needs a key)
+  club_elo.py           Club Elo snapshots (clubelo.com via soccerdata) - the CL bridge + baseline
   understat.py         xG pull (soccerdata) - 5/8 leagues, run once to populate
   squad_value.py        Transfermarkt scrape, 8 requests (one per league)
   transfermarkt_aliases.yaml   Transfermarkt name -> canonical name (150 clubs)
@@ -430,7 +487,9 @@ normalise/
 model/
   ratings.py           attack/defence, stat-agnostic, leakage-guarded, squad-value fallback
   dixon_coles.py        tau correction, diagonal inflation, + scoreline grid
-  predict.py            fixture -> probabilities, generic lam_mult/mu_mult hook
+  predict.py            fixture -> probabilities, generic lam_mult/mu_mult hook, + predict_cross_league
+  league_bridge.py       Club Elo cross-league bridge + CL goal baselines (Champions League)
+  club_elo_implied.py    Club Elo ratings -> implied 1X2 (the CL comparison price)
   referee.py             section 10.1 rank 1 - tested worse, OFF (see Milestone 4)
   rest.py                 section 10.1 rank 2 - tested worse, OFF
   travel.py               section 10.1 rank 3 - tested worse, OFF
@@ -440,8 +499,8 @@ model/
 evaluate/
   metrics.py            RPS, log loss, calibration
   baselines.py          devig, Elo proxy
-  backtest.py            walk-forward runner (referee/rest/travel/squad-value all OFF by default)
-  tune.py                 xi sweep + plot, stat comparison
+  backtest.py            walk-forward runner (+ backtest_uefa for the Champions League)
+  tune.py                 xi sweep + plot, stat comparison, + sweep_cl_gamma
   prediction_log.py       append-only, first-prediction-wins log of published fixtures
   track_record.py         scores prediction_log.py's log against results as they resolve
 scripts/
@@ -506,6 +565,12 @@ entirely and serve the committed JSON artefacts off GitHub Pages.
 - xG for Championship/Scottish Premiership/Primeira Liga - Understat simply
   doesn't cover them; `stat="auto"` falls back to `sot` there, it doesn't
   paper over the gap.
-- football-data.org fixtures API - `ingest/fixtures.py` uses
-  football-data.co.uk's own free fixtures.csv instead (same division codes,
-  no API key), documented there; swap if you need leagues outside this set.
+- football-data.org fixtures API for the *domestic* card - `ingest/fixtures.py`
+  uses football-data.co.uk's own free fixtures.csv instead (same division codes,
+  no API key). football-data.org *is* used for the Champions League, where
+  football-data.co.uk has no data (see the Champions League section).
+- Real bookmaker odds for the Champions League - football-data.org's free tier
+  has none, so the CL comparison price is Club Elo's implied 1X2. Add the paid
+  odds add-on, or a scraper, if a true closing line matters for that competition.
+- A cross-league bridge for the Europa / Conference League - the CL wiring
+  generalises to them (same `predict_cross_league`), just not done this pass.

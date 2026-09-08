@@ -48,6 +48,11 @@ jobs:
         run: pip install -r requirements.txt -r api/requirements.txt
 
       - name: Refresh results and re-score the live log
+        # FOOTBALL_DATA_ORG_TOKEN lets score_results resolve published Champions
+        # League predictions too (via ingest.champions_league.results). Absent,
+        # only the domestic log is scored, exactly as before.
+        env:
+          FOOTBALL_DATA_ORG_TOKEN: ${{ secrets.FOOTBALL_DATA_ORG_TOKEN }}
         run: python -m scripts.score_results --eval-start 2025-08-01
 
       - name: Commit the updated track record
@@ -55,6 +60,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/track-record.html
+          git add data/processed/ucl_matches.csv data/processed/club_elo || true
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Update live track record [skip ci]"
           # The weekly-predictions workflow can land on main while this runs;

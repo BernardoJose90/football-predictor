@@ -65,6 +65,18 @@ def _model_block(r: dict) -> dict | None:
     return None
 
 
+def _elo_block(r: dict) -> dict | None:
+    """Club Elo's implied 1X2 for a Champions League row, or None.
+
+    The CL has no free bookmaker closing line, so this is the comparison price
+    on that section of the page (labelled "Club Elo", not "Market").
+    """
+    if not pd.notna(r.get("elo_p_home")):
+        return None
+    return {"pHome": _pct(r["elo_p_home"]), "pDraw": _pct(r["elo_p_draw"]),
+            "pAway": _pct(r["elo_p_away"])}
+
+
 def _market_block(r: dict) -> dict | None:
     """The bookmakers' devigged forecast for one fixture row, or None."""
     if not pd.notna(r.get("market_p_home")):
@@ -95,10 +107,17 @@ def build_payload(csv_path, source: str = "model") -> list[dict]:
         if not rec["unrated"]:
             model = _model_block(r)
             market = _market_block(r)
+            elo = _elo_block(r)
+            compare_label = None
             if source == "market" and market is not None:
                 headline, compare = market, model
-            else:
+            elif market is not None:
                 headline, compare = model, market
+            else:
+                # Champions League: no bookmaker line, compare against Club Elo.
+                headline, compare = model, elo
+                if elo is not None:
+                    compare_label = "Club Elo"
             if headline is None:
                 rec["unrated"] = True
                 recs.append(rec)
@@ -124,6 +143,8 @@ def build_payload(csv_path, source: str = "model") -> list[dict]:
                 rec.update({
                     "mHome": compare["pHome"], "mDraw": compare["pDraw"], "mAway": compare["pAway"],
                 })
+                if compare_label:
+                    rec["compareLabel"] = compare_label
         recs.append(rec)
     return recs
 

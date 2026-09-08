@@ -5,9 +5,21 @@ side effects.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+
+# Load .env once, here, so any module reading a credential off config (or off
+# os.environ) sees it without repeating load_dotenv() everywhere. This is the
+# one deliberate side effect in this file; it only populates os.environ from a
+# local file and is a no-op when python-dotenv or the file is absent.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT / ".env")
+except ModuleNotFoundError:  # pragma: no cover - python-dotenv is a pinned dep
+    pass
 DATA_RAW = ROOT / "data" / "raw"
 DATA_PROCESSED = ROOT / "data" / "processed"
 ARTEFACTS = ROOT / "artefacts"
@@ -17,7 +29,15 @@ for _p in (DATA_RAW, DATA_PROCESSED, ARTEFACTS):
 
 # football-data.co.uk division codes -> human name.
 # https://www.football-data.co.uk/notes.txt
-LEAGUES: dict[str, str] = {
+#
+# COUPON_LEAGUES are the ones the weekend page and the public track record cover
+# (unchanged since the project started). The four after them - Eredivisie,
+# Belgian Pro League, Greek Super League, Turkish Super Lig - were added purely
+# so their clubs get an attack/defence rating for the Champions League
+# cross-league model (see model/league_bridge.py). They are NOT shown on the
+# weekend coupon: scripts.predict_upcoming pulls its domestic card from
+# COUPON_LEAGUES, and only the CL block reaches past it.
+COUPON_LEAGUES: dict[str, str] = {
     "E0": "Premier League",
     "E1": "EFL Championship",
     "SC0": "Scottish Premiership",
@@ -27,6 +47,21 @@ LEAGUES: dict[str, str] = {
     "F1": "Ligue 1",
     "P1": "Primeira Liga",
 }
+
+# Rating-only additions - ingested and rated, never couponed. Keep these in
+# their own dict so "is this a couponed league?" stays a one-liner.
+RATING_ONLY_LEAGUES: dict[str, str] = {
+    "N1": "Eredivisie",
+    "B1": "Belgian Pro League",
+    "G1": "Greek Super League",
+    "T1": "Turkish Super Lig",
+}
+
+# Everything ingest.historical downloads and normalise.schema names.
+LEAGUES: dict[str, str] = {**COUPON_LEAGUES, **RATING_ONLY_LEAGUES}
+
+# UEFA club competitions (not football-data.co.uk - see ingest/champions_league.py).
+UEFA_COMPS: dict[str, str] = {"CL": "Champions League"}
 
 # Seasons in football-data.co.uk's 4-digit form (start year + end year, 2 digits each).
 # 2627 is the in-progress season - included so ratings reflect current form and
@@ -41,6 +76,24 @@ SEASONS: list[str] = ["2324", "2425", "2526", "2627"]
 CURRENT_SEASON: str = SEASONS[-1]
 
 FOOTBALL_DATA_BASE = "https://www.football-data.co.uk/mmz4281"
+
+# ---- Champions League ----------------------------------------------------
+# Fixtures and results only (no odds on the free tier - the comparison price
+# is Club Elo's implied 1X2, see model/club_elo_implied.py). Register a free
+# key at https://www.football-data.org/client/register and put it in .env.
+FOOTBALL_DATA_ORG_BASE = "https://api.football-data.org/v4"
+FOOTBALL_DATA_ORG_TOKEN = os.environ.get("FOOTBALL_DATA_ORG_TOKEN", "")
+
+# Seasons to pull CL history for, as the starting calendar year (football-data.org
+# keys a season by its start year). 2021 is the first season with the current
+# free-tier depth; 2024 onward is the 36-team league phase.
+CL_SEASONS: list[int] = [2021, 2022, 2023, 2024, 2025]
+
+# Club Elo -> expected-goals bridge exponent for a cross-league tie. 0.0 = use
+# domestic form only (no bridge). Set from evaluate.tune.sweep_cl_gamma on a
+# tuning window kept separate from the reporting one - see README's Champions
+# League section. Provisional until that sweep has been run on real data.
+DEFAULT_CL_GAMMA = 0.0
 
 # ---- model defaults -------------------------------------------------------
 # Time-decay. Dixon & Coles (1997) optimum 0.0065 per half-week => /3.5 => 0.00186 per day,
@@ -75,19 +128,20 @@ MAX_GOALS = 10
 
 # Which raw statistic feeds the ratings. 'xg' requires an external xG join
 # (see ingest/understat.py); 'sot' and 'goals' come straight from the CSVs.
-# 'auto' tries AUTO_STAT_PRIMARY first per division, falling back to
-# AUTO_STAT_FALLBACK if that division has no usable data for it (e.g. xg for
-# E1/SC0/P1, which Understat doesn't cover) - resolved in
-# evaluate.backtest.backtest_league / scripts.predict_upcoming, never passed
-# into model.ratings.build_ratings directly (it only understands concrete
-# stats). Promoted to the default after a matched, paired comparison on the
-# 5 xg-covered leagues: xg beat sot by a mean RPS of 0.00497 per match
-# (bootstrap 95% CI [0.0027, 0.0073], excludes zero; Wilcoxon p=5.3e-08,
-# n=1644 identical fixtures both sides) - see README's Milestone 4 section.
+# 'auto' walks AUTO_STAT_CHAIN per division, using the first stat that division
+# has usable data for: xg (top 5 only), then shots on target, then plain goals
+# as a last resort for any division whose CSVs carry no shot columns at all
+# (some N1/B1/G1/T1 seasons). Resolved in evaluate.backtest.build_snapshot /
+# scripts.predict_upcoming, never passed into model.ratings.build_ratings
+# directly (it only understands concrete stats). Promoted to the default after
+# a matched, paired comparison on the 5 xg-covered leagues: xg beat sot by a
+# mean RPS of 0.00497 per match (bootstrap 95% CI [0.0027, 0.0073], excludes
+# zero; Wilcoxon p=5.3e-08, n=1644 identical fixtures) - see README Milestone 4.
 STAT_CHOICES = ("xg", "sot", "goals", "auto")
 DEFAULT_STAT = "auto"
-AUTO_STAT_PRIMARY = "xg"
-AUTO_STAT_FALLBACK = "sot"
+AUTO_STAT_CHAIN = ("xg", "sot", "goals")
+AUTO_STAT_PRIMARY = AUTO_STAT_CHAIN[0]      # back-compat aliases
+AUTO_STAT_FALLBACK = AUTO_STAT_CHAIN[1]
 
 # ---- section 10.1 feature candidates ---------------------------------------
 # Referee identity, days-since-last-match and travel distance were each tested

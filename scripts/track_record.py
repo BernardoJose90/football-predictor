@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 import pandas as pd
 
@@ -46,6 +47,24 @@ def _load_matches() -> pd.DataFrame:
         raise SystemExit("no dataset - run `python -m scripts.build_dataset --download` first")
     df["date"] = pd.to_datetime(df["date"])
     return df
+
+
+def _results_for_scoring(matches: pd.DataFrame) -> pd.DataFrame:
+    """Domestic results plus Champions League results, so a CL prediction in
+    the live log resolves the same way a Premier League one does. Only the
+    columns evaluate.track_record.join_results reads are unioned in."""
+    try:
+        from ingest import champions_league
+        cl = champions_league.results()
+    except Exception as exc:  # noqa: BLE001 - no mirror / no token -> domestic only
+        print(f"note: no CL results for scoring ({exc.__class__.__name__})", file=sys.stderr)
+        cl = pd.DataFrame()
+    if cl.empty:
+        return matches
+    keep = ["match_id", "date", "league", "home_team", "away_team",
+            "result", "home_goals", "away_goals"]
+    cl = cl.assign(league="Champions League")[keep]
+    return pd.concat([matches, cl], ignore_index=True)
 
 
 def _monthly_rps(df: pd.DataFrame, cols=("p_home", "p_draw", "p_away")) -> pd.DataFrame:
@@ -179,10 +198,15 @@ def _validation(matches: pd.DataFrame, eval_start: str, eval_end: str | None) ->
 def build(eval_start: str, eval_end: str | None) -> dict:
     matches = _load_matches()
     log = prediction_log.load()
+    # Validation stays on the 8 couponed leagues so its long-run numbers remain
+    # comparable across the project's history (N1/B1/G1/T1 were added only to
+    # rate Champions League participants). Live scoring gets the CL results
+    # unioned in so a published CL pick resolves like any other.
+    domestic = matches[~matches["div"].isin(config.RATING_ONLY_LEAGUES)].reset_index(drop=True)
     return {
         "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
-        "live": live_tr.score(log, matches),
-        "validation": _validation(matches, eval_start, eval_end),
+        "live": live_tr.score(log, _results_for_scoring(matches)),
+        "validation": _validation(domestic, eval_start, eval_end),
     }
 
 

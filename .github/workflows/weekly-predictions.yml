@@ -1,9 +1,11 @@
 name: Weekly predictions
 
-# Thursday morning (after midweek team news) and Saturday morning (matchday)
-# UTC. Also runnable on demand from the Actions tab for a manual refresh.
+# Tuesday and Thursday mornings (before the Champions League Tue/Wed matchdays
+# and after midweek team news) and Saturday morning (domestic matchday) UTC.
+# Also runnable on demand from the Actions tab for a manual refresh.
 on:
   schedule:
+    - cron: "0 8 * * 2"
     - cron: "0 8 * * 4"
     - cron: "0 7 * * 6"
   workflow_dispatch: {}
@@ -53,9 +55,17 @@ jobs:
         # ratings model shown underneath for comparison. predict_upcoming still
         # runs in model mode, so The Working / The Angles / The Ledger below
         # (all model-vs-market) are unaffected.
+        #
+        # FOOTBALL_DATA_ORG_TOKEN feeds the Champions League block (fixtures +
+        # results from football-data.org's free tier). Absent, that block skips
+        # itself and the domestic card renders as before.
+        env:
+          FOOTBALL_DATA_ORG_TOKEN: ${{ secrets.FOOTBALL_DATA_ORG_TOKEN }}
         run: python -m scripts.render_coupon --source market
 
       - name: Render the explainer, the angles and the track record
+        env:
+          FOOTBALL_DATA_ORG_TOKEN: ${{ secrets.FOOTBALL_DATA_ORG_TOKEN }}
         run: |
           python -m scripts.render_why
           python -m scripts.render_angles
@@ -66,6 +76,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/index.html docs/why.html docs/angles.html docs/track-record.html artefacts/prediction_log.csv
+          git add data/processed/ucl_matches.csv data/processed/club_elo || true
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Auto-update weekend pages [skip ci]"
           # The score-results workflow (or a manual push) can land on main while

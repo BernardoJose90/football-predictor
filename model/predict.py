@@ -5,6 +5,11 @@
 
 then feed lam, mu through the Dixon-Coles grid for outcome and market
 probabilities.
+
+``predict_cross_league`` does the same for a Champions League tie, where the
+two teams come from different domestic leagues: each side's attack/defence is
+read from its *own* league's snapshot and the two scales are reconciled with a
+Club Elo bridge (model/league_bridge.py).
 """
 from __future__ import annotations
 
@@ -20,6 +25,38 @@ def expected_goals(snap: RatingSnapshot, home: str, away: str) -> tuple[float, f
     lam = snap.attack(home) * snap.defence(away) * snap.lg_home_goals
     mu = snap.attack(away) * snap.defence(home) * snap.lg_away_goals
     return lam, mu
+
+
+def _finish(
+    lam: float,
+    mu: float,
+    meta: dict,
+    rho: float,
+    delta: float,
+    max_goals: int,
+    lam_mult: float = 1.0,
+    mu_mult: float = 1.0,
+) -> dict:
+    """The shared tail: (lam, mu) -> scoreline grid -> outcome/market probs.
+
+    ``meta`` is merged into the result verbatim (``ratings_as_of``, ``stat``,
+    ``xi`` for the domestic path; a few extra bridge fields for the CL one).
+    """
+    lam, mu = lam * lam_mult, mu * mu_mult
+    grid = dixon_coles.score_grid(lam, mu, rho=rho, delta=delta, max_goals=max_goals)
+    top = np.unravel_index(grid.argmax(), grid.shape)
+
+    out = dict(meta)
+    out.update({
+        "rho": rho,
+        "delta": delta,
+        "home_pred": round(float(lam), 3),
+        "away_pred": round(float(mu), 3),
+        "likely_score": f"{int(top[0])}-{int(top[1])}",
+    })
+    out.update({k: round(v, 4) for k, v in dixon_coles.outcome_probabilities(grid).items()})
+    out.update({k: round(v, 4) for k, v in dixon_coles.market_probabilities(grid).items()})
+    return out
 
 
 def predict_match(
@@ -49,25 +86,61 @@ def predict_match(
         return None
 
     lam, mu = expected_goals(snap, home, away)
-    lam, mu = lam * lam_mult, mu * mu_mult
-    grid = dixon_coles.score_grid(lam, mu, rho=rho, delta=delta, max_goals=max_goals)
-    top = np.unravel_index(grid.argmax(), grid.shape)
-
-    out = {
+    meta = {
         "home_team": home,
         "away_team": away,
         "ratings_as_of": snap.as_of,
         "stat": snap.stat,
         "xi": snap.xi,
-        "rho": rho,
-        "delta": delta,
-        "home_pred": round(float(lam), 3),
-        "away_pred": round(float(mu), 3),
-        "likely_score": f"{int(top[0])}-{int(top[1])}",
     }
-    out.update({k: round(v, 4) for k, v in dixon_coles.outcome_probabilities(grid).items()})
-    out.update({k: round(v, 4) for k, v in dixon_coles.market_probabilities(grid).items()})
-    return out
+    return _finish(lam, mu, meta, rho, delta, max_goals, lam_mult, mu_mult)
+
+
+def predict_cross_league(
+    snap_home: RatingSnapshot,
+    snap_away: RatingSnapshot,
+    home: str,
+    away: str,
+    bridge: float = 1.0,
+    g_home: float | None = None,
+    g_away: float | None = None,
+    rho: float = config.DEFAULT_RHO,
+    delta: float = config.DEFAULT_DELTA,
+    max_goals: int = config.MAX_GOALS,
+    lam_mult: float = 1.0,
+    mu_mult: float = 1.0,
+) -> dict | None:
+    """Prediction for a tie whose teams sit in two different domestic leagues.
+
+    ``snap_home`` rates ``home`` (built from its league), ``snap_away`` rates
+    ``away``. ``bridge`` is the Club Elo multiplier from
+    model.league_bridge.elo_bridge (1.0 = no bridge). ``g_home``/``g_away`` are
+    the competition's own average home/away goals; they default to each side's
+    own-league averages, which is the sensible thing when CL baselines aren't
+    available yet.
+
+    None when either team is unrated in its own league - same rule as
+    ``predict_match``.
+    """
+    if not snap_home.has(home) or not snap_away.has(away):
+        return None
+
+    g_home = snap_home.lg_home_goals if g_home is None else g_home
+    g_away = snap_away.lg_away_goals if g_away is None else g_away
+
+    lam = snap_home.attack(home) * snap_away.defence(away) * g_home * bridge
+    mu = snap_away.attack(away) * snap_home.defence(home) * g_away / bridge
+
+    meta = {
+        "home_team": home,
+        "away_team": away,
+        "ratings_as_of": snap_home.as_of,
+        "stat": snap_home.stat if snap_home.stat == snap_away.stat
+        else f"{snap_home.stat}/{snap_away.stat}",
+        "xi": snap_home.xi,
+        "bridge": round(float(bridge), 4),
+    }
+    return _finish(lam, mu, meta, rho, delta, max_goals, lam_mult, mu_mult)
 
 
 def predict_fixtures(

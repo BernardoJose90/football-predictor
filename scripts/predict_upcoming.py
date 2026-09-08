@@ -213,8 +213,8 @@ def _model_lookup(fx: pd.DataFrame, matches, args, as_of) -> dict:
     out: dict = {}
     for div, group in fx.groupby("div"):
         league_matches = matches[matches["div"] == div]
-        stats_to_try = ((config.AUTO_STAT_PRIMARY, config.AUTO_STAT_FALLBACK)
-                        if args.stat == "auto" else (args.stat,))
+        stats_to_try = (config.AUTO_STAT_CHAIN if args.stat == "auto"
+                        else (args.stat,))
         snap = None
         for candidate_stat in stats_to_try:
             try:
@@ -295,6 +295,126 @@ def _predict_from_market(fx: pd.DataFrame, market: dict, over_market: dict,
     return results
 
 
+def _snapshot_for_division(league_df: pd.DataFrame, as_of, args):
+    """Ratings for one division, walking config.AUTO_STAT_CHAIN like the
+    domestic loop does. None if the division has too little history."""
+    stats_to_try = config.AUTO_STAT_CHAIN if args.stat == "auto" else (args.stat,)
+    for candidate in stats_to_try:
+        try:
+            return build_ratings(league_df, as_of=as_of, stat=candidate, xi=args.xi,
+                                 min_matches=config.DEFAULT_MIN_MATCHES)
+        except ValueError:
+            continue
+    return None
+
+
+def _champions_league_block(matches: pd.DataFrame, args, today, days: int) -> list[dict]:
+    """Predict upcoming Champions League ties.
+
+    Each side is rated from its own domestic league; the two league-relative
+    scales are reconciled with a Club Elo bridge (model/league_bridge.py). A
+    club with no domestic rating (outside the ingested leagues, or too little
+    history) makes the tie UNRATED, same rule as the domestic card. The
+    comparison price is Club Elo's implied 1X2, not a bookmaker line.
+    """
+    from ingest import champions_league, club_elo
+    from model.club_elo_implied import implied_1x2
+    from model.league_bridge import cl_goal_baselines, elo_bridge
+    from model.predict import predict_cross_league
+
+    try:
+        fx = champions_league.upcoming(days=days, refresh_data=args.refresh)
+    except Exception as exc:  # noqa: BLE001 - missing token / API down -> skip cleanly
+        print(f"\nChampions League: skipped ({exc.__class__.__name__}: {exc})", file=sys.stderr)
+        return []
+    if fx.empty:
+        return []
+
+    day = pd.Timestamp(today).normalize()
+    try:
+        elo_map = club_elo.elo_by_date([day], refresh=args.refresh).get(day, {})
+    except Exception as exc:  # noqa: BLE001 - degrade to no-bridge
+        print(f"Champions League: Club Elo unavailable ({exc.__class__.__name__}) - "
+              f"running without the cross-league bridge", file=sys.stderr)
+        elo_map = {}
+
+    try:
+        cl_hist = champions_league.results(refresh_data=False)
+    except Exception:  # noqa: BLE001
+        cl_hist = pd.DataFrame(columns=["date", "home_goals", "away_goals"])
+    g_home, g_away = cl_goal_baselines(cl_hist, day, xi=args.xi)
+
+    snap_cache: dict[str, object] = {}
+
+    def _snap(team):
+        sub = matches[(matches["home_team"] == team) | (matches["away_team"] == team)]
+        if sub.empty:
+            return None
+        div = sub.sort_values("date").iloc[-1]["div"]
+        if div not in snap_cache:
+            snap_cache[div] = _snapshot_for_division(
+                matches[matches["div"] == div], day, args)
+        return snap_cache[div]
+
+    print("\n--- Champions League ---")
+    out: list[dict] = []
+    for row in fx.sort_values("date").itertuples(index=False):
+        when = row.date.strftime("%a %d %b %H:%M") if pd.notna(row.date) else "?"
+        base = {"league": "Champions League", "competition": "CL", "date": row.date,
+                "home_team": row.home_team, "away_team": row.away_team,
+                "match_id": row.match_id, "matchday": row.matchday, "stage": row.stage}
+        snap_h, snap_a = _snap(row.home_team), _snap(row.away_team)
+        if snap_h is None or snap_a is None or not snap_h.has(row.home_team) or not snap_a.has(row.away_team):
+            missing = row.home_team if (snap_h is None or not snap_h.has(row.home_team)) else row.away_team
+            print(f"  {when}  {row.home_team:24s} v {row.away_team:24s}  "
+                  f"UNRATED ({missing}: no league rating)")
+            out.append({**base, "unrated": True})
+            continue
+
+        elo_h, elo_a = elo_map.get(row.home_team), elo_map.get(row.away_team)
+        bridge = elo_bridge(elo_h, elo_a, args.cl_gamma)
+        pred = predict_cross_league(snap_h, snap_a, row.home_team, row.away_team,
+                                    bridge=bridge, g_home=g_home, g_away=g_away,
+                                    rho=args.rho, delta=args.delta)
+        if pred is None:
+            out.append({**base, "unrated": True})
+            continue
+
+        elo_probs = implied_1x2(elo_h, elo_a) if (elo_h and elo_a) else None
+        line = (f"  {when}  {row.home_team:24s} v {row.away_team:24s}  "
+                f"model: {pred['p_home']*100:4.1f}% / {pred['p_draw']*100:4.1f}% / "
+                f"{pred['p_away']*100:4.1f}%  (likely {pred['likely_score']})")
+        if elo_probs:
+            line += (f"   Club Elo: {elo_probs['p_home']*100:4.1f}% / "
+                     f"{elo_probs['p_draw']*100:4.1f}% / {elo_probs['p_away']*100:4.1f}%")
+        note = []
+        if elo_h is None or elo_a is None:
+            note.append("no Club Elo - domestic form only")
+        elif args.cl_gamma:
+            note.append(f"elo bridge {bridge:.2f}")
+        if note:
+            line += "   [" + ", ".join(note) + "]"
+        print(line)
+
+        rec = {**base, "unrated": False, "lam_mult": 1.0, "mu_mult": 1.0,
+               "adj_note": ", ".join(note), "adjustments": [],
+               "stat_used": pred["stat"], "bridge": round(float(bridge), 4),
+               "home_elo": elo_h, "away_elo": elo_a,
+               "home_attack": round(snap_h.attack(row.home_team), 4),
+               "home_defence": round(snap_h.defence(row.home_team), 4),
+               "away_attack": round(snap_a.attack(row.away_team), 4),
+               "away_defence": round(snap_a.defence(row.away_team), 4),
+               "lg_home_goals": round(g_home, 4), "lg_away_goals": round(g_away, 4),
+               "base_home_pred": pred["home_pred"], "base_away_pred": pred["away_pred"],
+               "base_p_home": pred["p_home"], "base_p_draw": pred["p_draw"],
+               "base_p_away": pred["p_away"],
+               **pred}
+        if elo_probs:
+            rec.update({f"elo_{k}": round(v, 4) for k, v in elo_probs.items()})
+        out.append(rec)
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--days", type=int, default=4, help="lookahead window from --start")
@@ -356,6 +476,12 @@ def main(argv=None) -> int:
     ap.add_argument("--rest-k", type=float, default=config.REST_K)
     ap.add_argument("--travel-k", type=float, default=config.TRAVEL_K)
     ap.add_argument("--value-prior-min-points", type=int, default=config.VALUE_PRIOR_MIN_POINTS)
+    ap.add_argument("--no-champions-league", dest="champions_league", action="store_false",
+                    default=True, help="skip the Champions League block (on by default; needs "
+                                       "FOOTBALL_DATA_ORG_TOKEN and Club Elo, both degrade to a "
+                                       "cache if unavailable)")
+    ap.add_argument("--cl-gamma", type=float, default=config.DEFAULT_CL_GAMMA,
+                    help="Club Elo cross-league bridge exponent (0 = domestic form only)")
     ap.add_argument("--out", default=None,
                     help="output CSV path (default: artefacts/upcoming_predictions.csv). "
                          "A richer per-fixture .json (ratings, per-adjustment breakdown, "
@@ -401,9 +527,12 @@ def main(argv=None) -> int:
     else:
         matches = _load_matches()
 
-    raw_fixtures = fixtures_mod.upcoming(leagues=set(config.LEAGUES), start=today, end=end)
+    # The domestic card is COUPON_LEAGUES only. N1/B1/G1/T1 are ingested and
+    # rated for the Champions League cross-league model (handled in its own
+    # block further down), never shown on the weekend page.
+    raw_fixtures = fixtures_mod.upcoming(leagues=set(config.COUPON_LEAGUES), start=today, end=end)
     if raw_fixtures.empty:
-        print(f"No fixtures found for {today.date()}..{end.date()} in {sorted(config.LEAGUES)}.",
+        print(f"No fixtures found for {today.date()}..{end.date()} in {sorted(config.COUPON_LEAGUES)}.",
               file=sys.stderr)
         return 1
 
@@ -473,6 +602,11 @@ def main(argv=None) -> int:
               f"{len(model_lookup)} with a model comparison)\n")
         results = _predict_from_market(fx, market, over_market, model_lookup,
                                        rho=args.rho, delta=args.delta)
+        # The CL has no bookmaker feed here, so its block is always model-based
+        # (vs Club Elo) - include it on the --source market card too, as long as
+        # the rating dataset is actually loaded.
+        if args.champions_league and matches is not None:
+            results += _champions_league_block(matches, args, today, args.days)
         return _publish(results, args,
                         trailer="(headline prices are the bookmakers' own devigged odds; "
                                 "model_p_* is our ratings' take, shown for comparison only)")
@@ -507,8 +641,8 @@ def main(argv=None) -> int:
         # stat="auto": try xg first, fall back to sot for a division that
         # doesn't have it (e.g. E1/SC0/P1) - see config.py for why this is
         # the default now (matched, paired, significant comparison).
-        stats_to_try = ((config.AUTO_STAT_PRIMARY, config.AUTO_STAT_FALLBACK)
-                        if args.stat == "auto" else (args.stat,))
+        stats_to_try = (config.AUTO_STAT_CHAIN if args.stat == "auto"
+                        else (args.stat,))
         snap, last_exc, stat_used = None, None, None
         for candidate_stat in stats_to_try:
             try:
@@ -676,6 +810,9 @@ def main(argv=None) -> int:
                     pass
             results.append(rec)
         print()
+
+    if args.champions_league:
+        results += _champions_league_block(matches, args, today, args.days)
 
     trailer = ""
     if adjustments_off:

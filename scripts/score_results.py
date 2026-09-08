@@ -55,6 +55,14 @@ def refresh_results() -> bool:
     build_aliases.main()
     reload_cache()
 
+    # Champions League results, so a published CL prediction resolves the same
+    # evening. Non-fatal: no token / API down just leaves the mirror stale.
+    try:
+        from ingest import champions_league
+        champions_league.refresh([config.CL_SEASONS[-1]])
+    except Exception as exc:  # noqa: BLE001
+        print(f"note: CL results not refreshed ({exc.__class__.__name__})", file=sys.stderr)
+
     matches = schema.normalise(historical.load_all())
     matches = understat.join(matches)  # no-op if understat_xg.csv is absent
     matches.to_csv(config.DATA_PROCESSED / "matches.csv", index=False)
